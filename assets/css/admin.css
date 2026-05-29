@@ -212,6 +212,15 @@
     vertical-align: top;
 }
 
+.wrt-recommendations {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.wrt-recommendations li + li {
+    margin-top: 8px;
+}
+
 @media (max-width: 960px) {
     .wrt-hero,
     .wrt-workspace {

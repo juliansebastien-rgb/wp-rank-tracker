@@ -245,7 +245,13 @@ final class WP_Rank_Tracker_Admin {
                                     </td>
                                     <td><?php echo esc_html($pageAudit['primary_keyword']); ?></td>
                                     <td><?php echo esc_html(implode(', ', $pageAudit['secondary_keywords'])); ?></td>
-                                    <td><?php echo esc_html(implode(' | ', $pageAudit['recommendations'])); ?></td>
+                                    <td>
+                                        <ul class="wrt-recommendations">
+                                            <?php foreach ($pageAudit['recommendations'] as $recommendation) : ?>
+                                                <li><?php echo esc_html($recommendation); ?></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -1233,7 +1239,7 @@ final class WP_Rank_Tracker_Admin {
         $secondaryKeywords = array_values(array_filter([$h1Phrase, $h2Phrase, $slugPhrase, ...$topTerms], fn(string $value): bool => $value !== '' && $value !== $primaryKeyword && !$this->is_generic_page_label($value)));
         $secondaryKeywords = array_slice(array_unique($secondaryKeywords), 0, 3);
 
-        $recommendations = $this->build_local_recommendations($title, $slugPhrase, $content, $topTerms, $headings);
+        $recommendations = $this->build_local_recommendations($title, $slugPhrase, $content, $topTerms, $headings, $primaryKeyword);
 
         return [
             'title' => $title !== '' ? $title : __('Sans titre', 'wp-rank-tracker'),
@@ -1337,35 +1343,43 @@ final class WP_Rank_Tracker_Admin {
      * @param array<string, string[]> $headings
      * @return string[]
      */
-    private function build_local_recommendations(string $title, string $slugPhrase, string $content, array $topTerms, array $headings): array {
+    private function build_local_recommendations(string $title, string $slugPhrase, string $content, array $topTerms, array $headings, string $primaryKeyword): array {
         $recommendations = [];
+        $titleTokens = $this->tokenize_text($title);
+        $focusTokens = $this->tokenize_text($primaryKeyword);
+        $sharedTitleFocus = array_intersect($titleTokens, $focusTokens);
 
-        if (count($this->tokenize_text($title)) < 2) {
-            $recommendations[] = __('Renforcer le title avec une requete plus explicite.', 'wp-rank-tracker');
+        if ($this->is_generic_page_label($this->normalize_phrase($title)) || count($titleTokens) < 2 || ($focusTokens !== [] && count($sharedTitleFocus) === 0)) {
+            $recommendedFocus = $primaryKeyword !== '' && !$this->is_generic_page_label($primaryKeyword) ? $primaryKeyword : __('ton sujet principal', 'wp-rank-tracker');
+            $recommendations[] = sprintf(
+                __('Action Title : dans WordPress, modifie le titre de la page pour y faire apparaitre clairement "%s". Titre detecte actuellement : "%s".', 'wp-rank-tracker'),
+                $recommendedFocus,
+                $title !== '' ? $title : __('Sans titre', 'wp-rank-tracker')
+            );
         }
 
         if ($slugPhrase === '') {
-            $recommendations[] = __('Rendre le slug plus descriptif.', 'wp-rank-tracker');
+            $recommendations[] = __('Action URL : modifie le permalien de cette page dans WordPress pour utiliser un slug descriptif lie au sujet principal.', 'wp-rank-tracker');
         }
 
         if (str_word_count($content) < 120) {
-            $recommendations[] = __('Ajouter plus de contenu pour mieux clarifier l intention de la page.', 'wp-rank-tracker');
+            $recommendations[] = __('Action Contenu : ajoute davantage de texte utile dans la page pour expliquer clairement le sujet, les cas d usage et les benefices.', 'wp-rank-tracker');
         }
 
         if ($headings['h1'] === []) {
-            $recommendations[] = __('Ajouter un H1 clair aligné avec le sujet principal de la page.', 'wp-rank-tracker');
+            $recommendations[] = __('Action H1 : ajoute un H1 unique et explicite dans le contenu de la page, aligne sur le sujet principal detecte.', 'wp-rank-tracker');
         }
 
         if ($headings['h2'] === []) {
-            $recommendations[] = __('Ajouter des H2 pour structurer le sujet et renforcer les sous-themes.', 'wp-rank-tracker');
+            $recommendations[] = __('Action H2 : ajoute 2 a 4 sous-titres H2 pour structurer la page en sections claires.', 'wp-rank-tracker');
         }
 
         if (count($topTerms) < 2) {
-            $recommendations[] = __('Le champ lexical semble faible. Ajouter des termes proches du sujet principal.', 'wp-rank-tracker');
+            $recommendations[] = __('Action Champ lexical : ajoute dans le texte des termes proches du sujet principal pour enrichir le vocabulaire SEO de la page.', 'wp-rank-tracker');
         }
 
         if ($recommendations === []) {
-            $recommendations[] = __('Base locale coherente. Comparer maintenant avec Google Search Console.', 'wp-rank-tracker');
+            $recommendations[] = __('Aucune correction locale prioritaire. Passe maintenant a la comparaison avec Google Search Console.', 'wp-rank-tracker');
         }
 
         return array_slice($recommendations, 0, 3);
