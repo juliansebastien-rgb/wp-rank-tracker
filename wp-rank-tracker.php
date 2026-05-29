@@ -3,7 +3,7 @@
  * Plugin Name: WP Rank Tracker
  * Plugin URI: https://github.com/juliansebastien-rgb/wp-rank-tracker
  * Description: Suit les mots-cles SEO de votre site WordPress et prepare le suivi de position sur Google et d'autres moteurs.
- * Version: 0.1.8
+ * Version: 0.1.9
  * Author: Le Labo d'Azertaf
  * Requires at least: 6.0
  * Requires PHP: 7.4

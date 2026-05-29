@@ -1229,8 +1229,8 @@ final class WP_Rank_Tracker_Admin {
         $h1Phrase = $this->normalize_phrase(implode(' ', $headings['h1']));
         $h2Phrase = $this->normalize_phrase(implode(' ', array_slice($headings['h2'], 0, 2)));
 
-        $primaryKeyword = $titlePhrase !== '' ? $titlePhrase : ($h1Phrase !== '' ? $h1Phrase : ($slugPhrase !== '' ? $slugPhrase : __('A definir', 'wp-rank-tracker')));
-        $secondaryKeywords = array_values(array_filter([$h1Phrase, $h2Phrase, $slugPhrase, ...$topTerms], static fn(string $value): bool => $value !== '' && $value !== $primaryKeyword));
+        $primaryKeyword = $this->pick_primary_keyword($titlePhrase, $h1Phrase, $h2Phrase, $slugPhrase, $topTerms);
+        $secondaryKeywords = array_values(array_filter([$h1Phrase, $h2Phrase, $slugPhrase, ...$topTerms], fn(string $value): bool => $value !== '' && $value !== $primaryKeyword && !$this->is_generic_page_label($value)));
         $secondaryKeywords = array_slice(array_unique($secondaryKeywords), 0, 3);
 
         $recommendations = $this->build_local_recommendations($title, $slugPhrase, $content, $topTerms, $headings);
@@ -1293,6 +1293,43 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return implode(' ', array_slice($tokens, 0, 4));
+    }
+
+    /**
+     * @param string[] $topTerms
+     */
+    private function pick_primary_keyword(string $titlePhrase, string $h1Phrase, string $h2Phrase, string $slugPhrase, array $topTerms): string {
+        $candidates = [$h1Phrase, $titlePhrase, $h2Phrase, $slugPhrase, ...$topTerms];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === '' || $this->is_generic_page_label($candidate)) {
+                continue;
+            }
+
+            return $candidate;
+        }
+
+        return __('A definir', 'wp-rank-tracker');
+    }
+
+    private function is_generic_page_label(string $phrase): bool {
+        $normalized = trim(remove_accents(strtolower($phrase)));
+        if ($normalized === '') {
+            return true;
+        }
+
+        $genericLabels = [
+            'accueil',
+            'home',
+            'homepage',
+            'index',
+            'landing',
+            'page accueil',
+            'page home',
+            'bienvenue',
+        ];
+
+        return in_array($normalized, $genericLabels, true);
     }
 
     /**
