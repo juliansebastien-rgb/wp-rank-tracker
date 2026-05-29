@@ -22,6 +22,7 @@ WP Rank Tracker pose maintenant un parcours en 2 temps :
 * import SERP externe via DataForSEO pour Google et Bing
 * preparation d un comparatif concurrentiel par mots-cles et domaines
 * mise a jour directe dans WordPress via les releases GitHub
+* mode service central pour gerer OAuth Google et les imports cote serveur
 
 Cette premiere version prepare ensuite les phases Bing Webmaster et SERP API tierce.
 
@@ -30,6 +31,22 @@ Cette premiere version prepare ensuite les phases Bing Webmaster et SERP API tie
 1. Uploadez le dossier `wp-rank-tracker` dans `/wp-content/plugins/`
 2. Activez le plugin dans WordPress
 3. Ouvrez `WP Rank Tracker` dans l'administration
+
+== Central service ==
+
+Le plugin peut fonctionner en mode service central :
+
+* OAuth Google gere par une API distante
+* tokens Google stockes cote serveur
+* imports Search Console et SERP lances cote backend
+
+Dans ce mode, l'utilisateur renseigne surtout :
+
+* URL API centrale
+* token API centrale
+* propriete Search Console
+* mots-cles surveilles
+* concurrents
 
 == Changelog ==
 
@@ -43,3 +60,4 @@ Cette premiere version prepare ensuite les phases Bing Webmaster et SERP API tie
 * Ajout d une integration DataForSEO pour la phase 3
 * Ajout d une base de comparatif concurrentiel preparatoire
 * Ajout du mecanisme de mise a jour GitHub pour WordPress
+* Ajout du mode service central via l API FastAPI

@@ -24,6 +24,7 @@ define('WP_RANK_TRACKER_URL', plugin_dir_url(__FILE__));
 
 require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-gsc-service.php';
 require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-dataforseo-service.php';
+require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-central-service.php';
 require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-admin.php';
 
 final class WP_Rank_Tracker {
