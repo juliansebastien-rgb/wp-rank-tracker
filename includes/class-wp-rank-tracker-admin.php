@@ -9,6 +9,8 @@ final class WP_Rank_Tracker_Admin {
     private const REPORT_OPTION_KEY = 'wp_rank_tracker_gsc_report';
     private const SERP_REPORT_OPTION_KEY = 'wp_rank_tracker_serp_report';
     private const MENU_SLUG = 'wp-rank-tracker';
+    private const MENU_SLUG_GOOGLE = 'wp-rank-tracker-google-search-console';
+    private const MENU_SLUG_DATAFORSEO = 'wp-rank-tracker-dataforseo';
     private const NONCE_ACTION_SETTINGS = 'wp_rank_tracker_save_settings';
     private const NONCE_ACTION_IMPORT = 'wp_rank_tracker_import_gsc';
     private const NONCE_ACTION_IMPORT_SERP = 'wp_rank_tracker_import_serp';
@@ -53,10 +55,43 @@ final class WP_Rank_Tracker_Admin {
             'dashicons-chart-line',
             58
         );
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            __('Local', 'wp-rank-tracker'),
+            __('Local', 'wp-rank-tracker'),
+            'manage_options',
+            self::MENU_SLUG,
+            [$this, 'render_admin_page']
+        );
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            __('Google Search Console', 'wp-rank-tracker'),
+            __('Google Search Console', 'wp-rank-tracker'),
+            'manage_options',
+            self::MENU_SLUG_GOOGLE,
+            [$this, 'render_admin_page']
+        );
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            __('DataForSEO', 'wp-rank-tracker'),
+            __('DataForSEO', 'wp-rank-tracker'),
+            'manage_options',
+            self::MENU_SLUG_DATAFORSEO,
+            [$this, 'render_admin_page']
+        );
     }
 
     public function enqueue_assets(string $hook): void {
-        if ($hook !== 'toplevel_page_' . self::MENU_SLUG) {
+        $allowedHooks = [
+            'toplevel_page_' . self::MENU_SLUG,
+            self::MENU_SLUG . '_page_' . self::MENU_SLUG_GOOGLE,
+            self::MENU_SLUG . '_page_' . self::MENU_SLUG_DATAFORSEO,
+        ];
+
+        if (!in_array($hook, $allowedHooks, true)) {
             return;
         }
 
@@ -181,6 +216,7 @@ final class WP_Rank_Tracker_Admin {
         $isCentralRegistered = !empty($settings['central_site_token']);
         $googleProperties = $this->get_google_properties($settings, $isConnected);
         $selectedProperty = $this->resolve_selected_property($settings, $centralStatus, $googleProperties);
+        $currentSection = $this->get_current_section();
         ?>
         <div class="wrap wrt-admin">
             <h1><?php esc_html_e('WP Rank Tracker', 'wp-rank-tracker'); ?></h1>
@@ -206,6 +242,7 @@ final class WP_Rank_Tracker_Admin {
                 </div>
             </div>
 
+            <?php if ($currentSection === 'local') : ?>
             <section class="wrt-card wrt-local-overview">
                 <h2><?php esc_html_e('Lecture locale de tes pages', 'wp-rank-tracker'); ?></h2>
                 <p><?php esc_html_e('Le plugin commence par analyser tes pages telles qu elles sont construites dans WordPress. Il repere pour chaque page le sujet principal qu elle semble cibler, avant de comparer ensuite cette lecture avec les donnees reelles de Google.', 'wp-rank-tracker'); ?></p>
@@ -266,7 +303,9 @@ final class WP_Rank_Tracker_Admin {
                     </table>
                 <?php endif; ?>
             </section>
+            <?php endif; ?>
 
+            <?php if ($currentSection === 'google') : ?>
             <section class="wrt-card wrt-table-card">
                 <h2><?php esc_html_e('Google Search Console', 'wp-rank-tracker'); ?></h2>
                 <p><?php esc_html_e('Connecte Google, choisis la propriete Search Console a analyser, puis enregistre. L import se lance automatiquement et te permettra de comparer ta lecture locale avec la vision reelle de Google.', 'wp-rank-tracker'); ?></p>
@@ -417,7 +456,9 @@ final class WP_Rank_Tracker_Admin {
                     </table>
                 <?php endif; ?>
             </section>
+            <?php endif; ?>
 
+            <?php if ($currentSection === 'dataforseo') : ?>
             <section class="wrt-card wrt-table-card">
                 <h2><?php esc_html_e('Configuration du suivi', 'wp-rank-tracker'); ?></h2>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -547,6 +588,7 @@ final class WP_Rank_Tracker_Admin {
                     </table>
                 <?php endif; ?>
             </section>
+            <?php endif; ?>
         </div>
         <?php
     }
@@ -1435,6 +1477,20 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return array_slice($recommendations, 0, 3);
+    }
+
+    private function get_current_section(): string {
+        $page = sanitize_key((string) ($_GET['page'] ?? self::MENU_SLUG));
+
+        if ($page === self::MENU_SLUG_GOOGLE) {
+            return 'google';
+        }
+
+        if ($page === self::MENU_SLUG_DATAFORSEO) {
+            return 'dataforseo';
+        }
+
+        return 'local';
     }
 
     /**
