@@ -94,6 +94,21 @@ final class WP_Rank_Tracker_Admin {
         ];
 
         update_option(self::OPTION_KEY, $settings, false);
+
+        $propertyUri = (string) ($settings['gsc_property_uri'] ?? '');
+        if ($propertyUri !== '') {
+            $centralStatus = $this->get_central_google_status($settings);
+            if (!empty($centralStatus['connected'])) {
+                $importResult = $this->run_google_import($settings);
+                if (is_wp_error($importResult)) {
+                    $this->redirect_with_notice('import-error', $importResult->get_error_message());
+                }
+
+                update_option(self::REPORT_OPTION_KEY, $importResult, false);
+                $this->redirect_with_notice('settings-and-import-success');
+            }
+        }
+
         $this->redirect_with_notice('settings-saved');
     }
 
@@ -102,18 +117,7 @@ final class WP_Rank_Tracker_Admin {
         check_admin_referer(self::NONCE_ACTION_IMPORT);
 
         $settings = $this->get_settings();
-        $centralService = new WP_Rank_Tracker_Central_Service($settings);
-
-        if ($centralService->is_configured()) {
-            $response = $centralService->import_google_report((string) $settings['gsc_property_uri'], (int) $settings['report_days']);
-            if (is_wp_error($response)) {
-                $this->redirect_with_notice('import-error', $response->get_error_message());
-            }
-            $report = is_array($response['report'] ?? null) ? $response['report'] : [];
-        } else {
-            $service = new WP_Rank_Tracker_GSC_Service($settings);
-            $report = $service->fetch_search_analytics();
-        }
+        $report = $this->run_google_import($settings);
 
         if (is_wp_error($report)) {
             $this->redirect_with_notice('import-error', $report->get_error_message());
@@ -337,7 +341,7 @@ final class WP_Rank_Tracker_Admin {
 
             <section class="wrt-card wrt-table-card">
                 <h2><?php esc_html_e('Connexion et import Google', 'wp-rank-tracker'); ?></h2>
-                <p><?php esc_html_e('Apres connexion, le plugin interroge Search Console avec les dimensions page + query pour construire un bilan par page et par requete.', 'wp-rank-tracker'); ?></p>
+                <p><?php esc_html_e('Apres connexion, le plugin interroge Search Console avec les dimensions page + query pour construire un bilan par page et par requete. L import se lance automatiquement quand tu enregistres une propriete Search Console.', 'wp-rank-tracker'); ?></p>
                 <?php if ($report['start_date'] !== '' && $report['end_date'] !== '') : ?>
                     <p class="description">
                         <?php
@@ -354,12 +358,12 @@ final class WP_Rank_Tracker_Admin {
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_import_gsc" />
                     <?php wp_nonce_field(self::NONCE_ACTION_IMPORT); ?>
-                    <?php submit_button(__('Importer depuis Search Console', 'wp-rank-tracker'), 'secondary'); ?>
+                    <?php submit_button(__('Rafraichir depuis Search Console', 'wp-rank-tracker'), 'secondary'); ?>
                 </form>
                 <ol class="wrt-steps">
                     <li><?php esc_html_e('Cliquer sur Connecter Google.', 'wp-rank-tracker'); ?></li>
                     <li><?php esc_html_e('Choisir la propriete Search Console detectee pour ce compte.', 'wp-rank-tracker'); ?></li>
-                    <li><?php esc_html_e('Enregistrer puis lancer l import Search Console.', 'wp-rank-tracker'); ?></li>
+                    <li><?php esc_html_e('Enregistrer la configuration. L import se fera automatiquement.', 'wp-rank-tracker'); ?></li>
                 </ol>
             </section>
 
@@ -916,6 +920,26 @@ final class WP_Rank_Tracker_Admin {
 
     private function maybe_register_site_with_central_service(): void {
         $this->ensure_central_site_registration($this->get_settings());
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @return array<string, mixed>|\WP_Error
+     */
+    private function run_google_import(array $settings) {
+        $centralService = new WP_Rank_Tracker_Central_Service($settings);
+
+        if ($centralService->is_configured()) {
+            $response = $centralService->import_google_report((string) $settings['gsc_property_uri'], (int) $settings['report_days']);
+            if (is_wp_error($response)) {
+                return $response;
+            }
+
+            return is_array($response['report'] ?? null) ? $response['report'] : [];
+        }
+
+        $service = new WP_Rank_Tracker_GSC_Service($settings);
+        return $service->fetch_search_analytics();
     }
 
     /**
@@ -1587,6 +1611,7 @@ final class WP_Rank_Tracker_Admin {
 
         $messages = [
             'settings-saved' => __('Configuration enregistree.', 'wp-rank-tracker'),
+            'settings-and-import-success' => __('Configuration enregistree et import Search Console lance automatiquement.', 'wp-rank-tracker'),
             'import-success' => __('Import Search Console termine.', 'wp-rank-tracker'),
             'import-error' => $message !== '' ? $message : __('Erreur pendant l import Search Console.', 'wp-rank-tracker'),
             'serp-success' => __('Import SERP externe termine.', 'wp-rank-tracker'),
