@@ -111,6 +111,18 @@
     margin-top: 0;
 }
 
+.wrt-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.wrt-section-head h2 {
+    margin-bottom: 0;
+}
+
 .wrt-subtitle {
     margin: 28px 0 12px;
     padding-top: 18px;

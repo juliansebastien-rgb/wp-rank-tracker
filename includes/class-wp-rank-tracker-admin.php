@@ -14,6 +14,7 @@ final class WP_Rank_Tracker_Admin {
     private const NONCE_ACTION_IMPORT_SERP = 'wp_rank_tracker_import_serp';
     private const NONCE_ACTION_CONNECT = 'wp_rank_tracker_connect_google';
     private const NONCE_ACTION_DISCONNECT = 'wp_rank_tracker_disconnect_google';
+    private const NONCE_ACTION_REFRESH_LOCAL = 'wp_rank_tracker_refresh_local';
     private const OAUTH_TRANSIENT_PREFIX = 'wp_rank_tracker_oauth_state_';
 
     public static function maybe_seed_defaults(): void {
@@ -38,6 +39,7 @@ final class WP_Rank_Tracker_Admin {
         add_action('admin_post_wp_rank_tracker_connect_google', [$this, 'handle_connect_google']);
         add_action('admin_post_wp_rank_tracker_google_oauth_callback', [$this, 'handle_google_oauth_callback']);
         add_action('admin_post_wp_rank_tracker_disconnect_google', [$this, 'handle_disconnect_google']);
+        add_action('admin_post_wp_rank_tracker_refresh_local', [$this, 'handle_refresh_local']);
         add_filter('plugin_action_links_' . plugin_basename(WP_RANK_TRACKER_FILE), [$this, 'plugin_action_links']);
     }
 
@@ -214,7 +216,14 @@ final class WP_Rank_Tracker_Admin {
             </section>
 
             <section class="wrt-card wrt-table-card">
-                <h2><?php esc_html_e('Mots-cles potentiels par page', 'wp-rank-tracker'); ?></h2>
+                <div class="wrt-section-head">
+                    <h2><?php esc_html_e('Mots-cles potentiels par page', 'wp-rank-tracker'); ?></h2>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="wp_rank_tracker_refresh_local" />
+                        <?php wp_nonce_field(self::NONCE_ACTION_REFRESH_LOCAL); ?>
+                        <?php submit_button(__('Mettre a jour', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
+                    </form>
+                </div>
                 <?php if ($localAudit['pages'] === []) : ?>
                     <p><?php esc_html_e('Aucune page publiee analysee.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
@@ -633,6 +642,12 @@ final class WP_Rank_Tracker_Admin {
         update_option(self::OPTION_KEY, $settings, false);
 
         $this->redirect_with_notice('disconnect-success');
+    }
+
+    public function handle_refresh_local(): void {
+        $this->assert_permissions();
+        check_admin_referer(self::NONCE_ACTION_REFRESH_LOCAL);
+        $this->redirect_with_notice('local-refresh-success');
     }
 
     private function assert_permissions(): void {
@@ -1326,7 +1341,146 @@ final class WP_Rank_Tracker_Admin {
             $content = do_blocks($content);
         }
 
+        if (function_exists('apply_shortcodes')) {
+            $content = apply_shortcodes($content);
+        } else {
+            $content = do_shortcode($content);
+        }
+
+        $builderContent = $this->extract_builder_content($post);
+        if ($builderContent !== '') {
+            $content .= "\n" . $builderContent;
+        }
+
         return $content;
+    }
+
+    private function extract_builder_content(WP_Post $post): string {
+        $parts = [];
+
+        $elementorContent = $this->extract_elementor_content($post);
+        if ($elementorContent !== '') {
+            $parts[] = $elementorContent;
+        }
+
+        return implode("\n", $parts);
+    }
+
+    private function extract_elementor_content(WP_Post $post): string {
+        $raw = get_post_meta($post->ID, '_elementor_data', true);
+        if (!is_string($raw) || trim($raw) === '') {
+            return '';
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return '';
+        }
+
+        $fragments = [];
+        $this->walk_elementor_nodes($decoded, $fragments);
+
+        return implode("\n", array_filter($fragments, static fn(string $value): bool => trim($value) !== ''));
+    }
+
+    /**
+     * @param array<int|string, mixed> $nodes
+     * @param string[] $fragments
+     */
+    private function walk_elementor_nodes(array $nodes, array &$fragments): void {
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+
+            $settings = isset($node['settings']) && is_array($node['settings']) ? $node['settings'] : [];
+            $widgetType = isset($node['widgetType']) ? (string) $node['widgetType'] : '';
+
+            $headingText = $this->extract_elementor_setting_text($settings, ['title', 'heading', 'text', 'editor', 'content']);
+            $headingTag = $this->extract_elementor_heading_tag($settings);
+
+            if ($widgetType === 'heading' && $headingText !== '') {
+                $fragments[] = sprintf('<%1$s>%2$s</%1$s>', $headingTag, esc_html($headingText));
+            } else {
+                foreach ($this->extract_elementor_text_fragments($settings) as $fragment) {
+                    $fragments[] = $fragment;
+                }
+            }
+
+            if (isset($node['elements']) && is_array($node['elements'])) {
+                $this->walk_elementor_nodes($node['elements'], $fragments);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @return string[]
+     */
+    private function extract_elementor_text_fragments(array $settings): array {
+        $fragments = [];
+        foreach ($settings as $key => $value) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            if (is_string($value)) {
+                $text = trim(wp_strip_all_tags($value));
+                if ($text === '') {
+                    continue;
+                }
+
+                if (str_contains($key, 'title') || str_contains($key, 'heading')) {
+                    $fragments[] = '<h2>' . esc_html($text) . '</h2>';
+                } elseif (str_contains($key, 'text') || str_contains($key, 'editor') || str_contains($key, 'content') || str_contains($key, 'description')) {
+                    $fragments[] = '<p>' . esc_html($text) . '</p>';
+                }
+            } elseif (is_array($value)) {
+                foreach ($this->extract_elementor_text_fragments($value) as $fragment) {
+                    $fragments[] = $fragment;
+                }
+            }
+        }
+
+        return $fragments;
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param string[] $keys
+     */
+    private function extract_elementor_setting_text(array $settings, array $keys): string {
+        foreach ($keys as $key) {
+            if (!isset($settings[$key]) || !is_string($settings[$key])) {
+                continue;
+            }
+
+            $text = trim(wp_strip_all_tags($settings[$key]));
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     */
+    private function extract_elementor_heading_tag(array $settings): string {
+        $candidates = ['header_size', 'title_tag', 'html_tag'];
+        foreach ($candidates as $key) {
+            if (!isset($settings[$key]) || !is_string($settings[$key])) {
+                continue;
+            }
+
+            $tag = strtolower(trim($settings[$key]));
+            if (in_array($tag, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'], true)) {
+                return $tag;
+            }
+        }
+
+        return 'h2';
     }
 
     /**
@@ -1578,6 +1732,7 @@ final class WP_Rank_Tracker_Admin {
         $messages = [
             'settings-saved' => __('Configuration enregistree.', 'wp-rank-tracker'),
             'settings-and-import-success' => __('Configuration enregistree et import Search Console lance automatiquement.', 'wp-rank-tracker'),
+            'local-refresh-success' => __('Bilan local mis a jour.', 'wp-rank-tracker'),
             'import-success' => __('Import Search Console termine.', 'wp-rank-tracker'),
             'import-error' => $message !== '' ? $message : __('Erreur pendant l import Search Console.', 'wp-rank-tracker'),
             'serp-success' => __('Import SERP externe termine.', 'wp-rank-tracker'),
