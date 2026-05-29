@@ -217,8 +217,47 @@
     padding-left: 18px;
 }
 
+.wrt-recommendations li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 .wrt-recommendations li + li {
     margin-top: 8px;
+}
+
+.wrt-recommendation-priority {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.wrt-priority-high {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.wrt-priority-medium {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.wrt-priority-low {
+    background: #ecfdf5;
+    color: #166534;
+}
+
+.wrt-recommendation-meta,
+.wrt-recommendation-why {
+    color: #64748b;
+}
+
+.wrt-recommendation-action {
+    color: #0f172a;
 }
 
 @media (max-width: 960px) {
