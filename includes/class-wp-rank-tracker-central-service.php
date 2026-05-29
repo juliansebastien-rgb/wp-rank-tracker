@@ -72,6 +72,15 @@ final class WP_Rank_Tracker_Central_Service {
     /**
      * @return array<string, mixed>|\WP_Error
      */
+    public function get_google_properties() {
+        return $this->request('GET', '/wrt/v1/google/properties', [], [
+            'site_url' => home_url('/'),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|\WP_Error
+     */
     public function import_google_report(string $propertyUri, int $days) {
         return $this->request(
             'POST',

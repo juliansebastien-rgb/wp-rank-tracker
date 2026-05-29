@@ -173,6 +173,8 @@ final class WP_Rank_Tracker_Admin {
         $centralStatus = $this->get_central_google_status($settings);
         $isConnected = $centralStatus['connected'];
         $isCentralRegistered = !empty($settings['central_site_token']);
+        $googleProperties = $this->get_google_properties($settings, $isConnected);
+        $selectedProperty = $this->resolve_selected_property($settings, $centralStatus, $googleProperties);
         ?>
         <div class="wrap wrt-admin">
             <h1><?php esc_html_e('WP Rank Tracker', 'wp-rank-tracker'); ?></h1>
@@ -249,13 +251,42 @@ final class WP_Rank_Tracker_Admin {
                         </table>
 
                         <h3 class="wrt-subtitle"><?php esc_html_e('Google Search Console', 'wp-rank-tracker'); ?></h3>
+                        <div class="wrt-connect-panel">
+                            <p class="description"><?php echo esc_html($isConnected ? __('Google est connecte. Selectionne maintenant la propriete Search Console a analyser.', 'wp-rank-tracker') : __('Commence par connecter Google. Le plugin recuperera ensuite les proprietes Search Console disponibles pour ce compte.', 'wp-rank-tracker')); ?></p>
+                            <div class="wrt-inline-actions">
+                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                    <input type="hidden" name="action" value="wp_rank_tracker_connect_google" />
+                                    <?php wp_nonce_field(self::NONCE_ACTION_CONNECT); ?>
+                                    <?php submit_button($isConnected ? __('Reconnecter Google', 'wp-rank-tracker') : __('Connecter Google', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
+                                </form>
+                                <?php if ($isConnected) : ?>
+                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                        <input type="hidden" name="action" value="wp_rank_tracker_disconnect_google" />
+                                        <?php wp_nonce_field(self::NONCE_ACTION_DISCONNECT); ?>
+                                        <?php submit_button(__('Deconnecter Google', 'wp-rank-tracker'), 'delete', 'submit', false); ?>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                         <table class="form-table" role="presentation">
                             <tbody>
                                 <tr>
                                     <th scope="row"><label for="wrt-gsc-property"><?php esc_html_e('Propriete Search Console', 'wp-rank-tracker'); ?></label></th>
                                     <td>
-                                        <input id="wrt-gsc-property" type="text" class="regular-text" name="gsc_property_uri" value="<?php echo esc_attr($settings['gsc_property_uri']); ?>" placeholder="sc-domain:example.com" />
-                                        <p class="description"><?php esc_html_e('Exemple : sc-domain:example.com ou https://www.example.com/.', 'wp-rank-tracker'); ?></p>
+                                        <?php if ($googleProperties !== []) : ?>
+                                            <select id="wrt-gsc-property" name="gsc_property_uri" class="regular-text">
+                                                <option value=""><?php esc_html_e('Choisir une propriete', 'wp-rank-tracker'); ?></option>
+                                                <?php foreach ($googleProperties as $property) : ?>
+                                                    <option value="<?php echo esc_attr($property['site_url']); ?>" <?php selected($selectedProperty, $property['site_url']); ?>>
+                                                        <?php echo esc_html($property['site_url']); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <p class="description"><?php esc_html_e('Liste recuperee automatiquement depuis le compte Google connecte.', 'wp-rank-tracker'); ?></p>
+                                        <?php else : ?>
+                                            <input id="wrt-gsc-property" type="text" class="regular-text" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" placeholder="sc-domain:example.com" />
+                                            <p class="description"><?php echo esc_html($isConnected ? __('Aucune propriete n a pu etre recuperee automatiquement. Tu peux la saisir manuellement.', 'wp-rank-tracker') : __('Connecte Google pour recuperer automatiquement les proprietes Search Console, ou saisis-la manuellement.', 'wp-rank-tracker')); ?></p>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <tr>
@@ -270,23 +301,6 @@ final class WP_Rank_Tracker_Admin {
 
                         <?php submit_button(__('Enregistrer la configuration', 'wp-rank-tracker')); ?>
                     </form>
-                    <div class="wrt-connect-panel">
-                        <p class="description"><?php echo esc_html($isConnected ? __('Google est deja connecte. Tu peux deconnecter puis reconnecter un autre compte si besoin.', 'wp-rank-tracker') : __('Clique sur Connecter Google pour autoriser l acces a Search Console. Toute la partie technique est geree par le service central.', 'wp-rank-tracker')); ?></p>
-                        <div class="wrt-inline-actions">
-                            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                <input type="hidden" name="action" value="wp_rank_tracker_connect_google" />
-                                <?php wp_nonce_field(self::NONCE_ACTION_CONNECT); ?>
-                                <?php submit_button(__('Connecter Google', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
-                            </form>
-                            <?php if ($isConnected) : ?>
-                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                    <input type="hidden" name="action" value="wp_rank_tracker_disconnect_google" />
-                                    <?php wp_nonce_field(self::NONCE_ACTION_DISCONNECT); ?>
-                                    <?php submit_button(__('Deconnecter Google', 'wp-rank-tracker'), 'delete', 'submit', false); ?>
-                                </form>
-                            <?php endif; ?>
-                        </div>
-                    </div>
                 </section>
             </div>
 
@@ -343,9 +357,9 @@ final class WP_Rank_Tracker_Admin {
                     <?php submit_button(__('Importer depuis Search Console', 'wp-rank-tracker'), 'secondary'); ?>
                 </form>
                 <ol class="wrt-steps">
-                    <li><?php esc_html_e('Creer un projet Google Cloud avec l API Search Console activee.', 'wp-rank-tracker'); ?></li>
-                    <li><?php esc_html_e('Renseigner le Client ID et le Client Secret dans le plugin.', 'wp-rank-tracker'); ?></li>
-                    <li><?php esc_html_e('Cliquer sur Connecter Google pour autoriser l acces.', 'wp-rank-tracker'); ?></li>
+                    <li><?php esc_html_e('Cliquer sur Connecter Google.', 'wp-rank-tracker'); ?></li>
+                    <li><?php esc_html_e('Choisir la propriete Search Console detectee pour ce compte.', 'wp-rank-tracker'); ?></li>
+                    <li><?php esc_html_e('Enregistrer puis lancer l import Search Console.', 'wp-rank-tracker'); ?></li>
                 </ol>
             </section>
 
@@ -813,13 +827,14 @@ final class WP_Rank_Tracker_Admin {
 
     /**
      * @param array<string, mixed> $settings
-     * @return array{connected:bool}
+     * @return array{connected:bool, property_uri:string}
      */
     private function get_central_google_status(array $settings): array {
         $service = new WP_Rank_Tracker_Central_Service($settings);
         if (empty($settings['central_site_token'])) {
             return [
                 'connected' => $this->is_google_connected($settings),
+                'property_uri' => sanitize_text_field((string) ($settings['gsc_property_uri'] ?? '')),
             ];
         }
 
@@ -827,12 +842,76 @@ final class WP_Rank_Tracker_Admin {
         if (is_wp_error($response)) {
             return [
                 'connected' => false,
+                'property_uri' => '',
             ];
         }
 
         return [
             'connected' => !empty($response['connected']),
+            'property_uri' => sanitize_text_field((string) ($response['property_uri'] ?? '')),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @return array<int, array{site_url:string, permission_level:string}>
+     */
+    private function get_google_properties(array $settings, bool $isConnected): array {
+        if (!$isConnected) {
+            return [];
+        }
+
+        $centralService = new WP_Rank_Tracker_Central_Service($settings);
+        if (!$centralService->is_configured()) {
+            return [];
+        }
+
+        $response = $centralService->get_google_properties();
+        if (is_wp_error($response) || !is_array($response['properties'] ?? null)) {
+            return [];
+        }
+
+        $properties = [];
+        foreach ($response['properties'] as $property) {
+            if (!is_array($property)) {
+                continue;
+            }
+
+            $siteUrl = sanitize_text_field((string) ($property['site_url'] ?? ''));
+            if ($siteUrl === '') {
+                continue;
+            }
+
+            $properties[] = [
+                'site_url' => $siteUrl,
+                'permission_level' => sanitize_text_field((string) ($property['permission_level'] ?? '')),
+            ];
+        }
+
+        return $properties;
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<string, mixed> $centralStatus
+     * @param array<int, array{site_url:string, permission_level:string}> $googleProperties
+     */
+    private function resolve_selected_property(array $settings, array $centralStatus, array $googleProperties): string {
+        $savedProperty = sanitize_text_field((string) ($settings['gsc_property_uri'] ?? ''));
+        if ($savedProperty !== '') {
+            return $savedProperty;
+        }
+
+        $centralProperty = sanitize_text_field((string) ($centralStatus['property_uri'] ?? ''));
+        if ($centralProperty !== '') {
+            return $centralProperty;
+        }
+
+        if (count($googleProperties) === 1) {
+            return $googleProperties[0]['site_url'];
+        }
+
+        return '';
     }
 
     private function maybe_register_site_with_central_service(): void {
