@@ -28,6 +28,7 @@ final class WP_Rank_Tracker_Admin {
 
     public function boot(): void {
         self::maybe_seed_defaults();
+        $this->maybe_register_site_with_central_service();
 
         add_action('admin_menu', [$this, 'register_admin_page']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
@@ -76,8 +77,8 @@ final class WP_Rank_Tracker_Admin {
 
         $settings = [
             'target_domain' => $this->sanitize_domain(wp_unslash((string) ($_POST['target_domain'] ?? ''))),
-            'central_api_base_url' => esc_url_raw(wp_unslash((string) ($_POST['central_api_base_url'] ?? ''))),
-            'central_api_token' => sanitize_text_field(wp_unslash((string) ($_POST['central_api_token'] ?? ''))),
+            'central_api_base_url' => 'https://api.mapage-wp.online',
+            'central_site_token' => (string) ($current['central_site_token'] ?? ''),
             'gsc_property_uri' => sanitize_text_field(wp_unslash((string) ($_POST['gsc_property_uri'] ?? ''))),
             'google_client_id' => sanitize_text_field(wp_unslash((string) ($_POST['google_client_id'] ?? ''))),
             'google_client_secret' => $postedClientSecret !== '' ? $postedClientSecret : (string) ($current['google_client_secret'] ?? ''),
@@ -171,6 +172,7 @@ final class WP_Rank_Tracker_Admin {
         $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport);
         $centralStatus = $this->get_central_google_status($settings);
         $isConnected = $centralStatus['connected'];
+        $isCentralRegistered = !empty($settings['central_site_token']);
         ?>
         <div class="wrap wrt-admin">
             <h1><?php esc_html_e('WP Rank Tracker', 'wp-rank-tracker'); ?></h1>
@@ -190,6 +192,7 @@ final class WP_Rank_Tracker_Admin {
                         <span><?php printf(esc_html__('%d page(s) locales', 'wp-rank-tracker'), (int) $localAudit['page_count']); ?></span>
                         <span><?php printf(esc_html__('%d page(s) Google', 'wp-rank-tracker'), (int) $summary['page_count']); ?></span>
                         <span><?php echo esc_html($isConnected ? __('Google connecte', 'wp-rank-tracker') : __('Google non connecte', 'wp-rank-tracker')); ?></span>
+                        <span><?php echo esc_html($isCentralRegistered ? __('Service central actif', 'wp-rank-tracker') : __('Service central en attente', 'wp-rank-tracker')); ?></span>
                         <span><?php echo esc_html($summary['last_fetch_label']); ?></span>
                     </div>
                 </div>
@@ -206,7 +209,7 @@ final class WP_Rank_Tracker_Admin {
                 </section>
 
                 <section class="wrt-card">
-                    <h2><?php esc_html_e('Ciblage et Integrations', 'wp-rank-tracker'); ?></h2>
+                    <h2><?php esc_html_e('Configuration du suivi', 'wp-rank-tracker'); ?></h2>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
                         <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
@@ -222,16 +225,10 @@ final class WP_Rank_Tracker_Admin {
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th scope="row"><label for="wrt-central-api-base"><?php esc_html_e('URL API centrale', 'wp-rank-tracker'); ?></label></th>
+                                    <th scope="row"><?php esc_html_e('Connexion du service', 'wp-rank-tracker'); ?></th>
                                     <td>
-                                        <input id="wrt-central-api-base" type="url" class="regular-text" name="central_api_base_url" value="<?php echo esc_attr((string) $settings['central_api_base_url']); ?>" placeholder="https://api.mapage-wp.online" />
-                                        <p class="description"><?php esc_html_e('URL du service central SEO qui gere Google OAuth et les imports cote serveur.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-central-api-token"><?php esc_html_e('Token API centrale', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-central-api-token" type="password" class="regular-text" name="central_api_token" value="<?php echo esc_attr((string) $settings['central_api_token']); ?>" />
+                                        <p><strong><?php echo esc_html__('Etat', 'wp-rank-tracker'); ?> :</strong> <?php echo esc_html($isCentralRegistered ? __('service pret', 'wp-rank-tracker') : __('initialisation en cours', 'wp-rank-tracker')); ?></p>
+                                        <p class="description"><?php esc_html_e('Le plugin enregistre automatiquement ce site sur le service central. Aucun reglage technique n est demande ici.', 'wp-rank-tracker'); ?></p>
                                     </td>
                                 </tr>
                                 <tr>
@@ -258,27 +255,7 @@ final class WP_Rank_Tracker_Admin {
                                     <th scope="row"><label for="wrt-gsc-property"><?php esc_html_e('Propriete Search Console', 'wp-rank-tracker'); ?></label></th>
                                     <td>
                                         <input id="wrt-gsc-property" type="text" class="regular-text" name="gsc_property_uri" value="<?php echo esc_attr($settings['gsc_property_uri']); ?>" placeholder="sc-domain:example.com" />
-                                        <p class="description"><?php esc_html_e('Utilise par exemple sc-domain:example.com ou https://www.example.com/.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-google-client-id"><?php esc_html_e('Google Client ID', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-google-client-id" type="text" class="regular-text" name="google_client_id" value="<?php echo esc_attr($settings['google_client_id']); ?>" />
-                                        <p class="description"><?php esc_html_e('Option technique de secours. En mode service central, l utilisateur final n en a normalement pas besoin.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-google-client-secret"><?php esc_html_e('Google Client Secret', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-google-client-secret" type="password" class="regular-text" name="google_client_secret" value="<?php echo esc_attr($settings['google_client_secret']); ?>" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-google-refresh-token"><?php esc_html_e('Google Refresh Token', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-google-refresh-token" type="password" class="regular-text" name="google_refresh_token" value="<?php echo esc_attr($settings['google_refresh_token']); ?>" />
-                                        <p class="description"><?php esc_html_e('Peut etre rempli automatiquement via le bouton Connecter Google.', 'wp-rank-tracker'); ?></p>
+                                        <p class="description"><?php esc_html_e('Exemple : sc-domain:example.com ou https://www.example.com/.', 'wp-rank-tracker'); ?></p>
                                     </td>
                                 </tr>
                                 <tr>
@@ -291,47 +268,10 @@ final class WP_Rank_Tracker_Admin {
                             </tbody>
                         </table>
 
-                        <h3 class="wrt-subtitle"><?php esc_html_e('DataForSEO', 'wp-rank-tracker'); ?></h3>
-                        <table class="form-table" role="presentation">
-                            <tbody>
-                                <tr>
-                                    <th scope="row"><label for="wrt-dataforseo-login"><?php esc_html_e('DataForSEO login', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-dataforseo-login" type="text" class="regular-text" name="dataforseo_login" value="<?php echo esc_attr((string) $settings['dataforseo_login']); ?>" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-dataforseo-password"><?php esc_html_e('DataForSEO password', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-dataforseo-password" type="password" class="regular-text" name="dataforseo_password" value="" />
-                                        <p class="description"><?php esc_html_e('Laisse vide pour conserver le mot de passe deja enregistre.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-dataforseo-location"><?php esc_html_e('DataForSEO location', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-dataforseo-location" type="text" class="regular-text" name="dataforseo_location_name" value="<?php echo esc_attr((string) $settings['dataforseo_location_name']); ?>" placeholder="United States" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-dataforseo-language"><?php esc_html_e('DataForSEO language', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-dataforseo-language" type="text" class="regular-text" name="dataforseo_language_name" value="<?php echo esc_attr((string) $settings['dataforseo_language_name']); ?>" placeholder="English" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-dataforseo-depth"><?php esc_html_e('DataForSEO depth', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-dataforseo-depth" type="number" min="10" max="100" name="dataforseo_depth" value="<?php echo esc_attr((string) $settings['dataforseo_depth']); ?>" />
-                                        <p class="description"><?php esc_html_e('Nombre de resultats SERP a inspecter par mot-cle et moteur.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
                         <?php submit_button(__('Enregistrer la configuration', 'wp-rank-tracker')); ?>
                     </form>
                     <div class="wrt-connect-panel">
-                        <p class="description"><?php echo esc_html($isConnected ? __('Google est deja connecte via le service central. Tu peux deconnecter puis reconnecter un autre compte si besoin.', 'wp-rank-tracker') : __('Renseigne l URL et le token de l API centrale, puis utilise Connecter Google. Le backend gere OAuth et le stockage des tokens.', 'wp-rank-tracker')); ?></p>
+                        <p class="description"><?php echo esc_html($isConnected ? __('Google est deja connecte. Tu peux deconnecter puis reconnecter un autre compte si besoin.', 'wp-rank-tracker') : __('Clique sur Connecter Google pour autoriser l acces a Search Console. Toute la partie technique est geree par le service central.', 'wp-rank-tracker')); ?></p>
                         <div class="wrt-inline-actions">
                             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                                 <input type="hidden" name="action" value="wp_rank_tracker_connect_google" />
@@ -734,8 +674,8 @@ final class WP_Rank_Tracker_Admin {
     private static function default_settings(): array {
         return [
             'target_domain' => wp_parse_url(home_url('/'), PHP_URL_HOST) ?: '',
-            'central_api_base_url' => '',
-            'central_api_token' => '',
+            'central_api_base_url' => 'https://api.mapage-wp.online',
+            'central_site_token' => '',
             'gsc_property_uri' => '',
             'google_client_id' => '',
             'google_client_secret' => '',
@@ -875,7 +815,7 @@ final class WP_Rank_Tracker_Admin {
      */
     private function get_central_google_status(array $settings): array {
         $service = new WP_Rank_Tracker_Central_Service($settings);
-        if (!$service->is_configured()) {
+        if (empty($settings['central_site_token'])) {
             return [
                 'connected' => $this->is_google_connected($settings),
             ];
@@ -891,6 +831,27 @@ final class WP_Rank_Tracker_Admin {
         return [
             'connected' => !empty($response['connected']),
         ];
+    }
+
+    private function maybe_register_site_with_central_service(): void {
+        $settings = $this->get_settings();
+        if (!empty($settings['central_site_token'])) {
+            return;
+        }
+
+        $service = new WP_Rank_Tracker_Central_Service($settings);
+        $response = $service->register_site();
+        if (is_wp_error($response)) {
+            return;
+        }
+
+        $siteToken = isset($response['site_token']) ? (string) $response['site_token'] : '';
+        if ($siteToken === '') {
+            return;
+        }
+
+        $settings['central_site_token'] = $siteToken;
+        update_option(self::OPTION_KEY, $settings, false);
     }
 
     /**

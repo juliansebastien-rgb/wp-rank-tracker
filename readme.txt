@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,15 +42,15 @@ Le plugin peut fonctionner en mode service central :
 
 Dans ce mode, l'utilisateur renseigne surtout :
 
-* URL API centrale
-* token API centrale
 * propriete Search Console
 * mots-cles surveilles
 * concurrents
 
+Le site peut s'enregistrer automatiquement sur le service central sans demander de secret serveur a l'utilisateur final.
+
 == Changelog ==
 
-= 0.1.0 =
+= 0.1.1 =
 * Creation du plugin WP Rank Tracker
 * Ajout d un audit local des pages
 * Ajout de recommandations SEO de base par page
@@ -61,3 +61,4 @@ Dans ce mode, l'utilisateur renseigne surtout :
 * Ajout d une base de comparatif concurrentiel preparatoire
 * Ajout du mecanisme de mise a jour GitHub pour WordPress
 * Ajout du mode service central via l API FastAPI
+* Simplification de l interface pour un usage grand public

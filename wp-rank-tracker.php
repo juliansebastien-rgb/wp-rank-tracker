@@ -3,7 +3,7 @@
  * Plugin Name: WP Rank Tracker
  * Plugin URI: https://github.com/juliansebastien-rgb/wp-rank-tracker
  * Description: Suit les mots-cles SEO de votre site WordPress et prepare le suivi de position sur Google et d'autres moteurs.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: Le Labo d'Azertaf
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WP_RANK_TRACKER_VERSION', '0.1.0');
+define('WP_RANK_TRACKER_VERSION', '0.1.1');
 define('WP_RANK_TRACKER_FILE', __FILE__);
 define('WP_RANK_TRACKER_DIR', plugin_dir_path(__FILE__));
 define('WP_RANK_TRACKER_URL', plugin_dir_url(__FILE__));
@@ -28,7 +28,7 @@ require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-central-servi
 require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-admin.php';
 
 final class WP_Rank_Tracker {
-    private const VERSION = '0.1.0';
+    private const VERSION = '0.1.1';
     private const TRANSIENT_PREFIX = 'wp_rank_tracker_';
     private const GITHUB_REPOSITORY = 'juliansebastien-rgb/wp-rank-tracker';
     private const GITHUB_API_BASE = 'https://api.github.com/repos/juliansebastien-rgb/wp-rank-tracker';

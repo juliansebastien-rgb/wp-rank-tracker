@@ -18,7 +18,22 @@ final class WP_Rank_Tracker_Central_Service {
     }
 
     public function is_configured(): bool {
-        return $this->get_api_base_url() !== '' && $this->get_api_token() !== '';
+        return $this->get_api_base_url() !== '' && $this->get_site_token() !== '';
+    }
+
+    /**
+     * @return array<string, mixed>|\WP_Error
+     */
+    public function register_site() {
+        return $this->request_public(
+            'POST',
+            '/wrt/v1/site/register',
+            [
+                'site_url' => home_url('/'),
+                'site_name' => get_bloginfo('name'),
+                'admin_email' => (string) get_option('admin_email', ''),
+            ]
+        );
     }
 
     /**
@@ -96,7 +111,7 @@ final class WP_Rank_Tracker_Central_Service {
      * @return array<string, mixed>|\WP_Error
      */
     private function request(string $method, string $path, array $body = [], array $query = []) {
-        if (!$this->is_configured()) {
+        if ($this->get_api_base_url() === '' || $this->get_site_token() === '') {
             return new WP_Error('wrt_central_not_configured', __('Le service central SEO n est pas configure.', 'wp-rank-tracker'));
         }
 
@@ -109,7 +124,7 @@ final class WP_Rank_Tracker_Central_Service {
             'method' => $method,
             'timeout' => 30,
             'headers' => [
-                'Authorization' => 'Bearer ' . $this->get_api_token(),
+                'Authorization' => 'Bearer ' . $this->get_site_token(),
                 'Content-Type' => 'application/json',
             ],
         ];
@@ -136,11 +151,54 @@ final class WP_Rank_Tracker_Central_Service {
         return is_array($payload) ? $payload : [];
     }
 
-    private function get_api_base_url(): string {
-        return untrailingslashit((string) ($this->settings['central_api_base_url'] ?? ''));
+    /**
+     * @param array<string, mixed> $body
+     * @return array<string, mixed>|\WP_Error
+     */
+    private function request_public(string $method, string $path, array $body = []) {
+        if ($this->get_api_base_url() === '') {
+            return new WP_Error('wrt_central_missing_base_url', __('L URL du service central SEO est absente.', 'wp-rank-tracker'));
+        }
+
+        $url = trailingslashit($this->get_api_base_url()) . ltrim($path, '/');
+        $response = wp_remote_request(
+            $url,
+            [
+                'method' => $method,
+                'timeout' => 30,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => wp_json_encode($body),
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $code = (int) wp_remote_retrieve_response_code($response);
+        $payload = json_decode((string) wp_remote_retrieve_body($response), true);
+        if ($code >= 400) {
+            $message = is_array($payload) && !empty($payload['detail'])
+                ? (string) $payload['detail']
+                : __('Erreur du service central SEO.', 'wp-rank-tracker');
+            return new WP_Error('wrt_central_http_error', $message);
+        }
+
+        return is_array($payload) ? $payload : [];
     }
 
-    private function get_api_token(): string {
-        return (string) ($this->settings['central_api_token'] ?? '');
+    private function get_api_base_url(): string {
+        $value = (string) ($this->settings['central_api_base_url'] ?? '');
+        if ($value === '') {
+            $value = 'https://api.mapage-wp.online';
+        }
+
+        return untrailingslashit($value);
+    }
+
+    private function get_site_token(): string {
+        return (string) ($this->settings['central_site_token'] ?? '');
     }
 }
