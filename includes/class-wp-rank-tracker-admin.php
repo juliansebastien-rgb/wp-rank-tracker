@@ -568,7 +568,7 @@ final class WP_Rank_Tracker_Admin {
         $settings = $this->ensure_central_site_registration($this->get_settings());
         $centralService = new WP_Rank_Tracker_Central_Service($settings);
         if ($centralService->is_configured()) {
-            $response = $centralService->start_google_connect(admin_url('admin.php?page=' . self::MENU_SLUG));
+            $response = $centralService->start_google_connect($this->get_admin_page_url());
             if (is_wp_error($response)) {
                 $this->redirect_with_notice('connect-error', $response->get_error_message());
             }
@@ -1530,7 +1530,6 @@ final class WP_Rank_Tracker_Admin {
 
     private function redirect_with_notice(string $notice, string $message = ''): void {
         $args = [
-            'page' => self::MENU_SLUG,
             'wrt_notice' => $notice,
         ];
 
@@ -1538,9 +1537,43 @@ final class WP_Rank_Tracker_Admin {
             $args['wrt_message'] = $message;
         }
 
-        wp_safe_redirect(
-            add_query_arg($args, admin_url('admin.php'))
-        );
+        wp_safe_redirect(add_query_arg($args, $this->get_admin_page_url()));
         exit;
+    }
+
+    private function get_admin_page_url(): string {
+        $fallback = admin_url('admin.php?page=' . self::MENU_SLUG);
+        $referer = wp_get_referer();
+
+        if (!is_string($referer) || $referer === '') {
+            return $fallback;
+        }
+
+        $parts = wp_parse_url($referer);
+        if (!is_array($parts)) {
+            return $fallback;
+        }
+
+        $path = isset($parts['path']) ? (string) $parts['path'] : '';
+        if ($path === '' || substr($path, -9) !== '/admin.php') {
+            return $fallback;
+        }
+
+        $query = [];
+        if (!empty($parts['query'])) {
+            parse_str((string) $parts['query'], $query);
+        }
+
+        $query['page'] = self::MENU_SLUG;
+        unset($query['wrt_notice'], $query['wrt_message'], $query['_wpnonce'], $query['_wp_http_referer']);
+
+        $url = (isset($parts['scheme']) ? $parts['scheme'] . '://' : '') . (isset($parts['host']) ? $parts['host'] : '');
+        if (!empty($parts['port'])) {
+            $url .= ':' . $parts['port'];
+        }
+
+        $url .= $path;
+
+        return add_query_arg($query, $url);
     }
 }
