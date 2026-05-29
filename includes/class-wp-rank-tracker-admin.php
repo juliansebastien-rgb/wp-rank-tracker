@@ -205,11 +205,11 @@ final class WP_Rank_Tracker_Admin {
             </div>
 
             <section class="wrt-card wrt-local-overview">
-                <h2><?php esc_html_e('Bilan local des pages', 'wp-rank-tracker'); ?></h2>
-                <p><?php esc_html_e('Ce bilan local estime les mots-cles probables de chaque page a partir du title, du slug, des H1/H2/H3, du debut du contenu et du champ lexical. C est une estimation SEO interne, pas encore la vision reelle de Google.', 'wp-rank-tracker'); ?></p>
+                <h2><?php esc_html_e('Lecture locale de tes pages', 'wp-rank-tracker'); ?></h2>
+                <p><?php esc_html_e('Le plugin commence par analyser tes pages telles qu elles sont construites dans WordPress. Il repere pour chaque page le sujet principal qu elle semble cibler, avant de comparer ensuite cette lecture avec les donnees reelles de Google.', 'wp-rank-tracker'); ?></p>
                 <div class="wrt-local-stats">
-                    <div><strong><?php echo esc_html((string) $localAudit['page_count']); ?></strong><span><?php esc_html_e('pages analysees', 'wp-rank-tracker'); ?></span></div>
-                    <div><strong><?php echo esc_html((string) $localAudit['with_focus_count']); ?></strong><span><?php esc_html_e('pages avec focus clair', 'wp-rank-tracker'); ?></span></div>
+                    <div><strong><?php echo esc_html((string) $localAudit['page_count']); ?></strong><span><?php esc_html_e('pages analysees localement', 'wp-rank-tracker'); ?></span></div>
+                    <div><strong><?php echo esc_html((string) $localAudit['with_focus_count']); ?></strong><span><?php esc_html_e('pages avec mot-cle principal detecte', 'wp-rank-tracker'); ?></span></div>
                 </div>
             </section>
 
@@ -244,324 +244,286 @@ final class WP_Rank_Tracker_Admin {
                 <?php endif; ?>
             </section>
 
-            <div class="wrt-workspace">
-                <div class="wrt-main-column">
-                    <section class="wrt-card wrt-table-card">
-                        <h2><?php esc_html_e('Bilan par page', 'wp-rank-tracker'); ?></h2>
-                        <?php if ($pageRows === []) : ?>
-                            <p><?php esc_html_e('Aucune donnee importee pour le moment.', 'wp-rank-tracker'); ?></p>
-                        <?php else : ?>
-                            <table class="widefat striped">
-                                <thead>
-                                    <tr>
-                                        <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Clics', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
-                                        <th>CTR</th>
-                                        <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Requete principale', 'wp-rank-tracker'); ?></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($pageRows as $pageRow) : ?>
-                                        <tr>
-                                            <td>
-                                                <strong><?php echo esc_html($pageRow['page']); ?></strong>
-                                            </td>
-                                            <td><?php echo esc_html((string) $pageRow['clicks']); ?></td>
-                                            <td><?php echo esc_html((string) $pageRow['impressions']); ?></td>
-                                            <td><?php echo esc_html($this->format_ctr($pageRow['ctr'])); ?></td>
-                                            <td><?php echo esc_html($this->format_position($pageRow['position'])); ?></td>
-                                            <td><?php echo esc_html($pageRow['top_query']); ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
-                    </section>
-
-                    <section class="wrt-card wrt-table-card">
-                        <h2><?php esc_html_e('Comparaison local vs Google', 'wp-rank-tracker'); ?></h2>
-                        <?php if ($comparisonRows === []) : ?>
-                            <p><?php esc_html_e('La comparaison sera disponible apres un import Search Console et un audit local avec pages publiees.', 'wp-rank-tracker'); ?></p>
-                        <?php else : ?>
-                            <table class="widefat striped">
-                                <thead>
-                                    <tr>
-                                        <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Focus local', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Requete Google principale', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Lecture', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($comparisonRows as $row) : ?>
-                                        <tr>
-                                            <td><strong><?php echo esc_html($row['title']); ?></strong><br /><span class="description"><?php echo esc_html($row['url']); ?></span></td>
-                                            <td><?php echo esc_html($row['local_keyword']); ?></td>
-                                            <td><?php echo esc_html($row['google_query']); ?></td>
-                                            <td><span class="wrt-match wrt-match-<?php echo esc_attr($row['match_status']); ?>"><?php echo esc_html($row['match_label']); ?></span></td>
-                                            <td><?php echo esc_html($this->format_position((float) $row['position'])); ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
-                    </section>
-
-                    <section class="wrt-card wrt-table-card">
-                        <h2><?php esc_html_e('Comparatif concurrentiel prepare', 'wp-rank-tracker'); ?></h2>
-                        <?php if ($settings['tracked_keywords'] === []) : ?>
-                            <p><?php esc_html_e('Ajoute d abord des mots-cles surveilles pour construire le comparatif.', 'wp-rank-tracker'); ?></p>
-                        <?php else : ?>
-                            <div class="wrt-market-intro">
-                                <p><?php esc_html_e('Cette vue ne pretend pas encore connaitre les positions exactes des concurrents. Elle prepare la lecture strategique : mots-cles cibles, pages locales associees, signaux Google existants et liste des concurrents a comparer en phase 3.', 'wp-rank-tracker'); ?></p>
-                                <div class="wrt-badges">
-                                    <span><?php printf(esc_html__('%d mot(s)-cle(s) surveille(s)', 'wp-rank-tracker'), count($settings['tracked_keywords'])); ?></span>
-                                    <span><?php printf(esc_html__('%d concurrent(s)', 'wp-rank-tracker'), count($settings['competitors'])); ?></span>
-                                </div>
-                            </div>
-                            <table class="widefat striped">
-                                <thead>
-                                    <tr>
-                                        <th><?php esc_html_e('Mot-cle surveille', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Page locale probable', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Signal Google actuel', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Concurrents a comparer', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Lecture strategique', 'wp-rank-tracker'); ?></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($marketRows as $row) : ?>
-                                        <tr>
-                                            <td><strong><?php echo esc_html($row['keyword']); ?></strong></td>
-                                            <td><?php echo esc_html($row['local_page']); ?></td>
-                                            <td><?php echo esc_html($row['google_signal']); ?></td>
-                                            <td><?php echo esc_html($row['competitors']); ?></td>
-                                            <td><?php echo esc_html($row['strategy']); ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
-                    </section>
-
-                    <section class="wrt-card wrt-table-card">
-                        <h2><?php esc_html_e('Requetes detectees par Google', 'wp-rank-tracker'); ?></h2>
-                        <?php if ($report['rows'] === []) : ?>
-                            <p><?php esc_html_e('Aucune requete disponible pour le moment.', 'wp-rank-tracker'); ?></p>
-                        <?php else : ?>
-                            <table class="widefat striped">
-                                <thead>
-                                    <tr>
-                                        <th><?php esc_html_e('Requete', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Clics', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
-                                        <th>CTR</th>
-                                        <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($report['rows'] as $row) : ?>
-                                        <tr>
-                                            <td><strong><?php echo esc_html($row['query']); ?></strong></td>
-                                            <td><?php echo esc_html($row['page']); ?></td>
-                                            <td><?php echo esc_html((string) $row['clicks']); ?></td>
-                                            <td><?php echo esc_html((string) $row['impressions']); ?></td>
-                                            <td><?php echo esc_html($this->format_ctr($row['ctr'])); ?></td>
-                                            <td><?php echo esc_html($this->format_position($row['position'])); ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
-                    </section>
-                </div>
-
-                <aside class="wrt-side-column">
-                    <section class="wrt-card">
-                    <h2><?php esc_html_e('Configuration du suivi', 'wp-rank-tracker'); ?></h2>
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Google Search Console', 'wp-rank-tracker'); ?></h2>
+                <p><?php esc_html_e('Connecte Google, choisis la propriete Search Console a analyser, puis enregistre. L import se lance automatiquement et te permettra de comparer ta lecture locale avec la vision reelle de Google.', 'wp-rank-tracker'); ?></p>
+                <div class="wrt-inline-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                        <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
-                        <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
-
-                        <h3 class="wrt-subtitle"><?php esc_html_e('Ciblage SEO', 'wp-rank-tracker'); ?></h3>
-                        <table class="form-table" role="presentation">
-                            <tbody>
-                                <tr>
-                                    <th scope="row"><label for="wrt-target-domain"><?php esc_html_e('Domaine cible', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-target-domain" type="text" class="regular-text" name="target_domain" value="<?php echo esc_attr($settings['target_domain']); ?>" placeholder="example.com" />
-                                        <p class="description"><?php esc_html_e('Le domaine principal du site audite.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><?php esc_html_e('Connexion du service', 'wp-rank-tracker'); ?></th>
-                                    <td>
-                                        <p><strong><?php echo esc_html__('Etat', 'wp-rank-tracker'); ?> :</strong> <?php echo esc_html($isCentralRegistered ? __('service pret', 'wp-rank-tracker') : __('initialisation en cours', 'wp-rank-tracker')); ?></p>
-                                        <p class="description"><?php esc_html_e('Le plugin enregistre automatiquement ce site sur le service central. Aucun reglage technique n est demande ici.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-tracked-keywords"><?php esc_html_e('Mots-cles surveilles', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <textarea id="wrt-tracked-keywords" name="tracked_keywords" rows="6" class="large-text" placeholder="formation seo&#10;consultant seo local"><?php echo esc_textarea(implode("\n", $settings['tracked_keywords'])); ?></textarea>
-                                        <p class="description"><?php esc_html_e('Un mot-cle par ligne. Sert au comparatif entre ton focus local, Google et les concurrents.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-competitors"><?php esc_html_e('Concurrents', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <textarea id="wrt-competitors" name="competitors" rows="5" class="large-text" placeholder="concurrent1.fr&#10;www.concurrent2.com"><?php echo esc_textarea(implode("\n", $settings['competitors'])); ?></textarea>
-                                        <p class="description"><?php esc_html_e('Un domaine concurrent par ligne. Cette phase prepare le comparatif concurrentiel avant la vraie phase SERP externe.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <h3 class="wrt-subtitle"><?php esc_html_e('Google Search Console', 'wp-rank-tracker'); ?></h3>
-                        <div class="wrt-connect-panel">
-                            <p class="description"><?php echo esc_html($isConnected ? __('Google est connecte. Selectionne maintenant la propriete Search Console a analyser.', 'wp-rank-tracker') : __('Commence par connecter Google. Le plugin recuperera ensuite les proprietes Search Console disponibles pour ce compte.', 'wp-rank-tracker')); ?></p>
-                            <div class="wrt-inline-actions">
-                                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                    <input type="hidden" name="action" value="wp_rank_tracker_connect_google" />
-                                    <?php wp_nonce_field(self::NONCE_ACTION_CONNECT); ?>
-                                    <?php submit_button($isConnected ? __('Reconnecter Google', 'wp-rank-tracker') : __('Connecter Google', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
-                                </form>
-                                <?php if ($isConnected) : ?>
-                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                                        <input type="hidden" name="action" value="wp_rank_tracker_disconnect_google" />
-                                        <?php wp_nonce_field(self::NONCE_ACTION_DISCONNECT); ?>
-                                        <?php submit_button(__('Deconnecter Google', 'wp-rank-tracker'), 'delete', 'submit', false); ?>
-                                    </form>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <table class="form-table" role="presentation">
-                            <tbody>
-                                <tr>
-                                    <th scope="row"><label for="wrt-gsc-property"><?php esc_html_e('Propriete Search Console', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <?php if ($googleProperties !== []) : ?>
-                                            <select id="wrt-gsc-property" name="gsc_property_uri" class="regular-text">
-                                                <option value=""><?php esc_html_e('Choisir une propriete', 'wp-rank-tracker'); ?></option>
-                                                <?php foreach ($googleProperties as $property) : ?>
-                                                    <option value="<?php echo esc_attr($property['site_url']); ?>" <?php selected($selectedProperty, $property['site_url']); ?>>
-                                                        <?php echo esc_html($property['site_url']); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <p class="description"><?php esc_html_e('Liste recuperee automatiquement depuis le compte Google connecte.', 'wp-rank-tracker'); ?></p>
-                                        <?php else : ?>
-                                            <input id="wrt-gsc-property" type="text" class="regular-text" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" placeholder="sc-domain:example.com" />
-                                            <p class="description"><?php echo esc_html($isConnected ? __('Aucune propriete n a pu etre recuperee automatiquement. Tu peux la saisir manuellement.', 'wp-rank-tracker') : __('Connecte Google pour recuperer automatiquement les proprietes Search Console, ou saisis-la manuellement.', 'wp-rank-tracker')); ?></p>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><label for="wrt-report-days"><?php esc_html_e('Periode d import', 'wp-rank-tracker'); ?></label></th>
-                                    <td>
-                                        <input id="wrt-report-days" type="number" min="1" max="90" name="report_days" value="<?php echo esc_attr((string) $settings['report_days']); ?>" />
-                                        <p class="description"><?php esc_html_e('Nombre de jours a importer depuis Search Console.', 'wp-rank-tracker'); ?></p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <?php submit_button(__('Enregistrer la configuration', 'wp-rank-tracker')); ?>
+                        <input type="hidden" name="action" value="wp_rank_tracker_connect_google" />
+                        <?php wp_nonce_field(self::NONCE_ACTION_CONNECT); ?>
+                        <?php submit_button($isConnected ? __('Reconnecter Google', 'wp-rank-tracker') : __('Connecter Google', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
                     </form>
-                    </section>
-
-                    <section class="wrt-card wrt-table-card">
-                        <h2><?php esc_html_e('Connexion et import Google', 'wp-rank-tracker'); ?></h2>
-                        <p><?php esc_html_e('Apres connexion, le plugin interroge Search Console avec les dimensions page + query pour construire un bilan par page et par requete. L import se lance automatiquement quand tu enregistres une propriete Search Console.', 'wp-rank-tracker'); ?></p>
-                        <?php if ($report['start_date'] !== '' && $report['end_date'] !== '') : ?>
-                            <p class="description">
-                                <?php
-                                echo esc_html(
-                                    sprintf(
-                                        __('Derniere plage importee : du %1$s au %2$s', 'wp-rank-tracker'),
-                                        $report['start_date'],
-                                        $report['end_date']
-                                    )
-                                );
-                                ?>
-                            </p>
-                        <?php endif; ?>
+                    <?php if ($isConnected) : ?>
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                            <input type="hidden" name="action" value="wp_rank_tracker_import_gsc" />
-                            <?php wp_nonce_field(self::NONCE_ACTION_IMPORT); ?>
-                            <?php submit_button(__('Rafraichir depuis Search Console', 'wp-rank-tracker'), 'secondary'); ?>
+                            <input type="hidden" name="action" value="wp_rank_tracker_disconnect_google" />
+                            <?php wp_nonce_field(self::NONCE_ACTION_DISCONNECT); ?>
+                            <?php submit_button(__('Deconnecter Google', 'wp-rank-tracker'), 'delete', 'submit', false); ?>
                         </form>
-                        <ol class="wrt-steps">
-                            <li><?php esc_html_e('Cliquer sur Connecter Google.', 'wp-rank-tracker'); ?></li>
-                            <li><?php esc_html_e('Choisir la propriete Search Console detectee pour ce compte.', 'wp-rank-tracker'); ?></li>
-                            <li><?php esc_html_e('Enregistrer la configuration. L import se fera automatiquement.', 'wp-rank-tracker'); ?></li>
-                        </ol>
-                    </section>
+                    <?php endif; ?>
+                </div>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
+                    <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
+                    <input type="hidden" name="target_domain" value="<?php echo esc_attr($settings['target_domain']); ?>" />
+                    <input type="hidden" name="tracked_keywords" value="<?php echo esc_attr(implode("\n", $settings['tracked_keywords'])); ?>" />
+                    <input type="hidden" name="competitors" value="<?php echo esc_attr(implode("\n", $settings['competitors'])); ?>" />
+                    <table class="form-table" role="presentation">
+                        <tbody>
+                            <tr>
+                                <th scope="row"><label for="wrt-gsc-property"><?php esc_html_e('Propriete Search Console', 'wp-rank-tracker'); ?></label></th>
+                                <td>
+                                    <?php if ($googleProperties !== []) : ?>
+                                        <select id="wrt-gsc-property" name="gsc_property_uri" class="regular-text">
+                                            <option value=""><?php esc_html_e('Choisir une propriete', 'wp-rank-tracker'); ?></option>
+                                            <?php foreach ($googleProperties as $property) : ?>
+                                                <option value="<?php echo esc_attr($property['site_url']); ?>" <?php selected($selectedProperty, $property['site_url']); ?>>
+                                                    <?php echo esc_html($property['site_url']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <p class="description"><?php esc_html_e('Liste recuperee automatiquement depuis le compte Google connecte.', 'wp-rank-tracker'); ?></p>
+                                    <?php else : ?>
+                                        <input id="wrt-gsc-property" type="text" class="regular-text" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" placeholder="sc-domain:example.com" />
+                                        <p class="description"><?php echo esc_html($isConnected ? __('Aucune propriete n a pu etre recuperee automatiquement. Tu peux la saisir manuellement.', 'wp-rank-tracker') : __('Connecte Google pour recuperer automatiquement les proprietes Search Console, ou saisis-la manuellement.', 'wp-rank-tracker')); ?></p>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="wrt-report-days"><?php esc_html_e('Periode d import', 'wp-rank-tracker'); ?></label></th>
+                                <td>
+                                    <input id="wrt-report-days" type="number" min="1" max="90" name="report_days" value="<?php echo esc_attr((string) $settings['report_days']); ?>" />
+                                    <p class="description"><?php esc_html_e('Nombre de jours a importer depuis Search Console.', 'wp-rank-tracker'); ?></p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <?php submit_button(__('Enregistrer la propriete Google', 'wp-rank-tracker')); ?>
+                </form>
+            </section>
 
-                    <section class="wrt-card wrt-table-card">
-                        <h2><?php esc_html_e('Phase 3 SERP externe', 'wp-rank-tracker'); ?></h2>
-                        <p><?php esc_html_e('Ce module interroge DataForSEO sur Google et Bing pour les mots-cles surveilles, puis cherche ton domaine et les domaines concurrents dans les SERP retournees.', 'wp-rank-tracker'); ?></p>
-                        <?php if ($serpReport['fetched_at'] !== '') : ?>
-                            <p class="description">
-                                <?php
-                                echo esc_html(
-                                    sprintf(
-                                        __('Dernier import SERP : %1$s (%2$s, %3$s)', 'wp-rank-tracker'),
-                                        $serpReport['fetched_at'],
-                                        $serpReport['location_name'],
-                                        $serpReport['language_name']
-                                    )
-                                );
-                                ?>
-                            </p>
-                        <?php endif; ?>
-                        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                            <input type="hidden" name="action" value="wp_rank_tracker_import_serp" />
-                            <?php wp_nonce_field(self::NONCE_ACTION_IMPORT_SERP); ?>
-                            <?php submit_button(__('Importer les SERP externes', 'wp-rank-tracker'), 'secondary'); ?>
-                        </form>
-                        <?php if ($serpComparisonRows === []) : ?>
-                            <p><?php esc_html_e('Aucune donnee SERP externe importee pour le moment.', 'wp-rank-tracker'); ?></p>
-                        <?php else : ?>
-                            <table class="widefat striped">
-                                <thead>
-                                    <tr>
-                                        <th><?php esc_html_e('Mot-cle', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Moteur', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Ton domaine', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Meilleur concurrent', 'wp-rank-tracker'); ?></th>
-                                        <th><?php esc_html_e('Lecture', 'wp-rank-tracker'); ?></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($serpComparisonRows as $row) : ?>
-                                        <tr>
-                                            <td><strong><?php echo esc_html($row['keyword']); ?></strong></td>
-                                            <td><?php echo esc_html($row['engine']); ?></td>
-                                            <td><?php echo esc_html($row['target_rank']); ?></td>
-                                            <td><?php echo esc_html($row['competitor_rank']); ?></td>
-                                            <td><?php echo esc_html($row['note']); ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        <?php endif; ?>
-                    </section>
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Bilan par page', 'wp-rank-tracker'); ?></h2>
+                <?php if ($pageRows === []) : ?>
+                    <p><?php esc_html_e('Aucune donnee importee pour le moment.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Clics', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
+                                <th>CTR</th>
+                                <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Requete principale', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($pageRows as $pageRow) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($pageRow['page']); ?></strong></td>
+                                    <td><?php echo esc_html((string) $pageRow['clicks']); ?></td>
+                                    <td><?php echo esc_html((string) $pageRow['impressions']); ?></td>
+                                    <td><?php echo esc_html($this->format_ctr($pageRow['ctr'])); ?></td>
+                                    <td><?php echo esc_html($this->format_position($pageRow['position'])); ?></td>
+                                    <td><?php echo esc_html($pageRow['top_query']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
 
-                    <section class="wrt-card wrt-roadmap">
-                        <h2><?php esc_html_e('Suite logique', 'wp-rank-tracker'); ?></h2>
-                        <ul>
-                            <li><?php esc_html_e('Ajouter l import Bing Webmaster en phase 2.', 'wp-rank-tracker'); ?></li>
-                            <li><?php esc_html_e('Ajouter l historique d evolution par page et par requete.', 'wp-rank-tracker'); ?></li>
-                            <li><?php esc_html_e('Ajouter ensuite une API SERP tierce pour la phase 3.', 'wp-rank-tracker'); ?></li>
-                        </ul>
-                    </section>
-                </aside>
-            </div>
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Comparaison local vs Google', 'wp-rank-tracker'); ?></h2>
+                <?php if ($comparisonRows === []) : ?>
+                    <p><?php esc_html_e('La comparaison sera disponible apres un import Search Console et un audit local avec pages publiees.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Focus local', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Requete Google principale', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Lecture', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($comparisonRows as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['title']); ?></strong><br /><span class="description"><?php echo esc_html($row['url']); ?></span></td>
+                                    <td><?php echo esc_html($row['local_keyword']); ?></td>
+                                    <td><?php echo esc_html($row['google_query']); ?></td>
+                                    <td><span class="wrt-match wrt-match-<?php echo esc_attr($row['match_status']); ?>"><?php echo esc_html($row['match_label']); ?></span></td>
+                                    <td><?php echo esc_html($this->format_position((float) $row['position'])); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Requetes detectees par Google', 'wp-rank-tracker'); ?></h2>
+                <?php if ($report['rows'] === []) : ?>
+                    <p><?php esc_html_e('Aucune requete disponible pour le moment.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Requete', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Clics', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
+                                <th>CTR</th>
+                                <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($report['rows'] as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['query']); ?></strong></td>
+                                    <td><?php echo esc_html($row['page']); ?></td>
+                                    <td><?php echo esc_html((string) $row['clicks']); ?></td>
+                                    <td><?php echo esc_html((string) $row['impressions']); ?></td>
+                                    <td><?php echo esc_html($this->format_ctr($row['ctr'])); ?></td>
+                                    <td><?php echo esc_html($this->format_position($row['position'])); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Configuration du suivi', 'wp-rank-tracker'); ?></h2>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
+                    <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
+                    <input type="hidden" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" />
+                    <input type="hidden" name="report_days" value="<?php echo esc_attr((string) $settings['report_days']); ?>" />
+                    <table class="form-table" role="presentation">
+                        <tbody>
+                            <tr>
+                                <th scope="row"><label for="wrt-target-domain"><?php esc_html_e('Domaine cible', 'wp-rank-tracker'); ?></label></th>
+                                <td>
+                                    <input id="wrt-target-domain" type="text" class="regular-text" name="target_domain" value="<?php echo esc_attr($settings['target_domain']); ?>" placeholder="example.com" />
+                                    <p class="description"><?php esc_html_e('Le domaine principal du site audite.', 'wp-rank-tracker'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php esc_html_e('Connexion du service', 'wp-rank-tracker'); ?></th>
+                                <td>
+                                    <p><strong><?php echo esc_html__('Etat', 'wp-rank-tracker'); ?> :</strong> <?php echo esc_html($isCentralRegistered ? __('service pret', 'wp-rank-tracker') : __('initialisation en cours', 'wp-rank-tracker')); ?></p>
+                                    <p class="description"><?php esc_html_e('Le plugin enregistre automatiquement ce site sur le service central. Aucun reglage technique n est demande ici.', 'wp-rank-tracker'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="wrt-tracked-keywords"><?php esc_html_e('Mots-cles surveilles', 'wp-rank-tracker'); ?></label></th>
+                                <td>
+                                    <textarea id="wrt-tracked-keywords" name="tracked_keywords" rows="6" class="large-text" placeholder="formation seo&#10;consultant seo local"><?php echo esc_textarea(implode("\n", $settings['tracked_keywords'])); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Un mot-cle par ligne. Sert au comparatif entre ton focus local, Google et les concurrents.', 'wp-rank-tracker'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="wrt-competitors"><?php esc_html_e('Concurrents', 'wp-rank-tracker'); ?></label></th>
+                                <td>
+                                    <textarea id="wrt-competitors" name="competitors" rows="5" class="large-text" placeholder="concurrent1.fr&#10;www.concurrent2.com"><?php echo esc_textarea(implode("\n", $settings['competitors'])); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Un domaine concurrent par ligne. Cette phase prepare le comparatif concurrentiel avant la vraie phase SERP externe.', 'wp-rank-tracker'); ?></p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <?php submit_button(__('Enregistrer la configuration', 'wp-rank-tracker')); ?>
+                </form>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Comparatif concurrentiel prepare', 'wp-rank-tracker'); ?></h2>
+                <?php if ($settings['tracked_keywords'] === []) : ?>
+                    <p><?php esc_html_e('Ajoute d abord des mots-cles surveilles pour construire le comparatif.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <div class="wrt-market-intro">
+                        <p><?php esc_html_e('Cette vue ne pretend pas encore connaitre les positions exactes des concurrents. Elle prepare la lecture strategique : mots-cles cibles, pages locales associees, signaux Google existants et liste des concurrents a comparer en phase 3.', 'wp-rank-tracker'); ?></p>
+                        <div class="wrt-badges">
+                            <span><?php printf(esc_html__('%d mot(s)-cle(s) surveille(s)', 'wp-rank-tracker'), count($settings['tracked_keywords'])); ?></span>
+                            <span><?php printf(esc_html__('%d concurrent(s)', 'wp-rank-tracker'), count($settings['competitors'])); ?></span>
+                        </div>
+                    </div>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Mot-cle surveille', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Page locale probable', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Signal Google actuel', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Concurrents a comparer', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Lecture strategique', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($marketRows as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['keyword']); ?></strong></td>
+                                    <td><?php echo esc_html($row['local_page']); ?></td>
+                                    <td><?php echo esc_html($row['google_signal']); ?></td>
+                                    <td><?php echo esc_html($row['competitors']); ?></td>
+                                    <td><?php echo esc_html($row['strategy']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Phase 3 SERP externe', 'wp-rank-tracker'); ?></h2>
+                <p><?php esc_html_e('Ce module interroge DataForSEO sur Google et Bing pour les mots-cles surveilles, puis cherche ton domaine et les domaines concurrents dans les SERP retournees.', 'wp-rank-tracker'); ?></p>
+                <?php if ($serpReport['fetched_at'] !== '') : ?>
+                    <p class="description">
+                        <?php
+                        echo esc_html(
+                            sprintf(
+                                __('Dernier import SERP : %1$s (%2$s, %3$s)', 'wp-rank-tracker'),
+                                $serpReport['fetched_at'],
+                                $serpReport['location_name'],
+                                $serpReport['language_name']
+                            )
+                        );
+                        ?>
+                    </p>
+                <?php endif; ?>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="wp_rank_tracker_import_serp" />
+                    <?php wp_nonce_field(self::NONCE_ACTION_IMPORT_SERP); ?>
+                    <?php submit_button(__('Importer les SERP externes', 'wp-rank-tracker'), 'secondary'); ?>
+                </form>
+                <?php if ($serpComparisonRows === []) : ?>
+                    <p><?php esc_html_e('Aucune donnee SERP externe importee pour le moment.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Mot-cle', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Moteur', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Ton domaine', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Meilleur concurrent', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Lecture', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($serpComparisonRows as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['keyword']); ?></strong></td>
+                                    <td><?php echo esc_html($row['engine']); ?></td>
+                                    <td><?php echo esc_html($row['target_rank']); ?></td>
+                                    <td><?php echo esc_html($row['competitor_rank']); ?></td>
+                                    <td><?php echo esc_html($row['note']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
         </div>
         <?php
     }
