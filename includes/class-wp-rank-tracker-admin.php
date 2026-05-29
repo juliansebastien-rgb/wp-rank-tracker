@@ -565,7 +565,7 @@ final class WP_Rank_Tracker_Admin {
         $this->assert_permissions();
         check_admin_referer(self::NONCE_ACTION_CONNECT);
 
-        $settings = $this->get_settings();
+        $settings = $this->ensure_central_site_registration($this->get_settings());
         $centralService = new WP_Rank_Tracker_Central_Service($settings);
         if ($centralService->is_configured()) {
             $response = $centralService->start_google_connect(admin_url('admin.php?page=' . self::MENU_SLUG));
@@ -581,6 +581,8 @@ final class WP_Rank_Tracker_Admin {
             wp_safe_redirect($authUrl);
             exit;
         }
+
+        $this->redirect_with_notice('connect-error', __('Le service central n est pas pret pour ce site. Recharge la page puis recommence.', 'wp-rank-tracker'));
 
         $service = new WP_Rank_Tracker_GSC_Service($settings);
         $state = wp_generate_password(24, false, false);
@@ -834,24 +836,33 @@ final class WP_Rank_Tracker_Admin {
     }
 
     private function maybe_register_site_with_central_service(): void {
-        $settings = $this->get_settings();
+        $this->ensure_central_site_registration($this->get_settings());
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @return array<string, mixed>
+     */
+    private function ensure_central_site_registration(array $settings): array {
         if (!empty($settings['central_site_token'])) {
-            return;
+            return $settings;
         }
 
         $service = new WP_Rank_Tracker_Central_Service($settings);
         $response = $service->register_site();
         if (is_wp_error($response)) {
-            return;
+            return $settings;
         }
 
         $siteToken = isset($response['site_token']) ? (string) $response['site_token'] : '';
         if ($siteToken === '') {
-            return;
+            return $settings;
         }
 
         $settings['central_site_token'] = $siteToken;
         update_option(self::OPTION_KEY, $settings, false);
+
+        return $settings;
     }
 
     /**
