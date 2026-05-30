@@ -197,6 +197,69 @@
     margin-top: 0;
 }
 
+.wrt-summary-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.wrt-summary-item {
+    padding: 14px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #dbe4ee;
+}
+
+.wrt-summary-item strong,
+.wrt-summary-item span {
+    display: block;
+}
+
+.wrt-summary-item strong {
+    font-size: 24px;
+    color: #0f172a;
+}
+
+.wrt-summary-item span {
+    margin-top: 4px;
+    color: #475569;
+}
+
+.wrt-todo-list,
+.wrt-alert-page-list,
+.wrt-quick-win-list {
+    display: grid;
+    gap: 12px;
+}
+
+.wrt-todo-item,
+.wrt-alert-page,
+.wrt-quick-win {
+    padding: 14px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #dbe4ee;
+}
+
+.wrt-todo-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+}
+
+.wrt-todo-item p,
+.wrt-alert-page p,
+.wrt-quick-win p {
+    margin: 6px 0 0;
+    color: #475569;
+}
+
+.wrt-alert-page {
+    display: grid;
+    gap: 10px;
+}
+
 .wrt-quick-actions {
     display: flex;
     flex-wrap: wrap;
@@ -518,7 +581,13 @@
     .wrt-hero,
     .wrt-workspace,
     .wrt-dashboard-grid,
-    .wrt-dashboard-panels {
+    .wrt-dashboard-panels,
+    .wrt-summary-list {
         grid-template-columns: 1fr;
+    }
+
+    .wrt-todo-item {
+        align-items: start;
+        flex-direction: column;
     }
 }

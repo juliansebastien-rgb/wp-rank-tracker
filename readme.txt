@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.18
+Stable tag: 0.1.19
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,12 @@ Dans ce mode, l'utilisateur renseigne surtout :
 Le site peut s'enregistrer automatiquement sur le service central sans demander de secret serveur a l'utilisateur final.
 
 == Changelog ==
+
+= 0.1.19 =
+* Ajout d un bloc A faire maintenant dans le Tableau de bord
+* Ajout d un Resume du jour avec les hausses, baisses et opportunites fortes
+* Ajout d une vue Pages en alerte avec actions directes
+* Ajout d un bloc Opportunites rapides avec estimation d impact
 
 = 0.1.18 =
 * Separation du menu en 4 entrees : Tableau de bord, Local, Google Search Console et DataForSEO

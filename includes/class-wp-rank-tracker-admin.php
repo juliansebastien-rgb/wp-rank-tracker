@@ -272,6 +272,10 @@ final class WP_Rank_Tracker_Admin {
         $quickActions = $this->build_quick_actions($settings, $priorityOpportunities);
         $googleClickChartRows = $this->build_google_click_chart_rows($pageRows);
         $serpVisibilityChartRows = $this->build_serp_visibility_chart_rows($settings, $serpReport);
+        $dailySummary = $this->build_daily_summary($priorityOpportunities, $googleTrendRows, $serpComparisonRows);
+        $nextActions = $this->build_next_actions($settings, $isConnected, $selectedProperty, $priorityOpportunities);
+        $alertPages = $this->build_alert_pages($googleTrendRows);
+        $quickWins = $this->build_quick_wins($priorityOpportunities);
         ?>
         <div class="wrap wrt-admin">
             <h1><?php esc_html_e('WP Rank Tracker', 'wp-rank-tracker'); ?></h1>
@@ -320,6 +324,39 @@ final class WP_Rank_Tracker_Admin {
                 </div>
                 <div class="wrt-dashboard-panels">
                     <section class="wrt-panel">
+                        <h3><?php esc_html_e('Resume du jour', 'wp-rank-tracker'); ?></h3>
+                        <div class="wrt-summary-list">
+                            <?php foreach ($dailySummary as $item) : ?>
+                                <article class="wrt-summary-item">
+                                    <strong><?php echo esc_html($item['value']); ?></strong>
+                                    <span><?php echo esc_html($item['label']); ?></span>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    </section>
+                    <section class="wrt-panel">
+                        <h3><?php esc_html_e('A faire maintenant', 'wp-rank-tracker'); ?></h3>
+                        <?php if ($nextActions === []) : ?>
+                            <p class="wrt-empty-copy"><?php esc_html_e('Aucune action urgente pour le moment.', 'wp-rank-tracker'); ?></p>
+                        <?php else : ?>
+                            <div class="wrt-todo-list">
+                                <?php foreach ($nextActions as $action) : ?>
+                                    <article class="wrt-todo-item">
+                                        <div>
+                                            <strong><?php echo esc_html($action['title']); ?></strong>
+                                            <p><?php echo esc_html($action['copy']); ?></p>
+                                        </div>
+                                        <a class="button button-primary" href="<?php echo esc_url($action['url']); ?>">
+                                            <?php echo esc_html($action['label']); ?>
+                                        </a>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                </div>
+                <div class="wrt-dashboard-panels">
+                    <section class="wrt-panel">
                         <h3><?php esc_html_e('Parcours conseille', 'wp-rank-tracker'); ?></h3>
                         <ol class="wrt-step-list">
                             <?php foreach ($setupSteps as $step) : ?>
@@ -343,6 +380,61 @@ final class WP_Rank_Tracker_Admin {
                                     <article class="wrt-alert wrt-alert-<?php echo esc_attr($alert['priority']); ?>">
                                         <strong><?php echo esc_html($alert['title']); ?></strong>
                                         <p><?php echo esc_html($alert['copy']); ?></p>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                </div>
+                <div class="wrt-dashboard-panels">
+                    <section class="wrt-panel">
+                        <h3><?php esc_html_e('Pages en alerte', 'wp-rank-tracker'); ?></h3>
+                        <?php if ($alertPages === []) : ?>
+                            <p class="wrt-empty-copy"><?php esc_html_e('Aucune page en baisse notable pour le moment.', 'wp-rank-tracker'); ?></p>
+                        <?php else : ?>
+                            <div class="wrt-alert-page-list">
+                                <?php foreach ($alertPages as $page) : ?>
+                                    <article class="wrt-alert-page">
+                                        <div>
+                                            <strong><?php echo esc_html($page['title']); ?></strong>
+                                            <p><?php echo wp_kses_post($page['trend']); ?></p>
+                                        </div>
+                                        <?php if ($page['actions'] !== []) : ?>
+                                            <div class="wrt-row-actions">
+                                                <?php foreach ($page['actions'] as $action) : ?>
+                                                    <a class="button button-small" href="<?php echo esc_url($action['url']); ?>">
+                                                        <?php echo esc_html($action['label']); ?>
+                                                    </a>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                    <section class="wrt-panel">
+                        <h3><?php esc_html_e('Opportunites rapides', 'wp-rank-tracker'); ?></h3>
+                        <?php if ($quickWins === []) : ?>
+                            <p class="wrt-empty-copy"><?php esc_html_e('Aucune opportunite rapide n a encore ete detectee.', 'wp-rank-tracker'); ?></p>
+                        <?php else : ?>
+                            <div class="wrt-quick-win-list">
+                                <?php foreach ($quickWins as $item) : ?>
+                                    <article class="wrt-quick-win">
+                                        <span class="wrt-recommendation-priority wrt-priority-<?php echo esc_attr($item['priority']); ?>">
+                                            <?php echo esc_html($item['impact_label']); ?>
+                                        </span>
+                                        <strong><?php echo esc_html($item['title']); ?></strong>
+                                        <p><?php echo esc_html($item['copy']); ?></p>
+                                        <?php if ($item['actions'] !== []) : ?>
+                                            <div class="wrt-row-actions">
+                                                <?php foreach ($item['actions'] as $action) : ?>
+                                                    <a class="button button-small" href="<?php echo esc_url($action['url']); ?>">
+                                                        <?php echo esc_html($action['label']); ?>
+                                                    </a>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </article>
                                 <?php endforeach; ?>
                             </div>
@@ -1854,6 +1946,131 @@ final class WP_Rank_Tracker_Admin {
         return $rows;
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $priorityOpportunities
+     * @param array<int, array<string, mixed>> $googleTrendRows
+     * @param array<int, array<string, string>> $serpComparisonRows
+     * @return array<int, array{label:string,value:string}>
+     */
+    private function build_daily_summary(array $priorityOpportunities, array $googleTrendRows, array $serpComparisonRows): array {
+        $upCount = count(array_filter($googleTrendRows, static fn(array $item): bool => str_contains((string) ($item['trend'] ?? ''), 'wrt-delta-up')));
+        $downCount = count(array_filter($googleTrendRows, static fn(array $item): bool => str_contains((string) ($item['trend'] ?? ''), 'wrt-delta-down')));
+        $highPriorityCount = count(array_filter($priorityOpportunities, static fn(array $item): bool => (string) ($item['priority'] ?? '') === 'high'));
+        $competitorLeadCount = count(array_filter($serpComparisonRows, static fn(array $item): bool => str_contains((string) ($item['note'] ?? ''), 'concurrent')));
+
+        return [
+            [
+                'value' => (string) $upCount,
+                'label' => __('pages en hausse', 'wp-rank-tracker'),
+            ],
+            [
+                'value' => (string) $downCount,
+                'label' => __('pages en baisse', 'wp-rank-tracker'),
+            ],
+            [
+                'value' => (string) $highPriorityCount,
+                'label' => __('opportunites fortes', 'wp-rank-tracker'),
+            ],
+            [
+                'value' => (string) $competitorLeadCount,
+                'label' => __('mots-cles avec concurrent devant', 'wp-rank-tracker'),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<int, array<string, mixed>> $priorityOpportunities
+     * @return array<int, array{title:string,copy:string,label:string,url:string}>
+     */
+    private function build_next_actions(array $settings, bool $isConnected, string $selectedProperty, array $priorityOpportunities): array {
+        $actions = [];
+
+        if (!$isConnected) {
+            $actions[] = [
+                'title' => __('Connecter Google', 'wp-rank-tracker'),
+                'copy' => __('On commence par relier Search Console pour passer de l estimation locale a la vision reelle de Google.', 'wp-rank-tracker'),
+                'label' => __('Ouvrir Google', 'wp-rank-tracker'),
+                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_GOOGLE),
+            ];
+        } elseif ($selectedProperty === '') {
+            $actions[] = [
+                'title' => __('Choisir la propriete Search Console', 'wp-rank-tracker'),
+                'copy' => __('Le compte Google est connecte, mais il faut encore selectionner le bon site a suivre.', 'wp-rank-tracker'),
+                'label' => __('Choisir la propriete', 'wp-rank-tracker'),
+                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_GOOGLE),
+            ];
+        }
+
+        if ((is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : []) === []) {
+            $actions[] = [
+                'title' => __('Ajouter les mots-cles suivis', 'wp-rank-tracker'),
+                'copy' => __('Ajoute les expressions que tu veux vraiment faire progresser pour obtenir un suivi utile.', 'wp-rank-tracker'),
+                'label' => __('Configurer les mots-cles', 'wp-rank-tracker'),
+                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_DATAFORSEO),
+            ];
+        }
+
+        foreach ($priorityOpportunities as $opportunity) {
+            if (empty($opportunity['actions'][0]['url']) || empty($opportunity['actions'][0]['label'])) {
+                continue;
+            }
+
+            $actions[] = [
+                'title' => (string) ($opportunity['title'] ?? __('Traiter une priorite', 'wp-rank-tracker')),
+                'copy' => (string) ($opportunity['action'] ?? ''),
+                'label' => (string) ($opportunity['actions'][0]['label'] ?? __('Ouvrir', 'wp-rank-tracker')),
+                'url' => (string) ($opportunity['actions'][0]['url'] ?? admin_url('admin.php?page=' . self::MENU_SLUG_LOCAL)),
+            ];
+        }
+
+        return array_slice($actions, 0, 3);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $googleTrendRows
+     * @return array<int, array{title:string,trend:string,actions:array<int, array{label:string,url:string}>}>
+     */
+    private function build_alert_pages(array $googleTrendRows): array {
+        $rows = [];
+
+        foreach ($googleTrendRows as $row) {
+            $trend = (string) ($row['trend'] ?? '');
+            if (!str_contains($trend, 'wrt-delta-down')) {
+                continue;
+            }
+
+            $rows[] = [
+                'title' => $this->shorten_label((string) ($row['page'] ?? __('Sans titre', 'wp-rank-tracker')), 72),
+                'trend' => $trend,
+                'actions' => $this->build_actions_from_page_url((string) ($row['page'] ?? '')),
+            ];
+        }
+
+        return array_slice($rows, 0, 3);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $priorityOpportunities
+     * @return array<int, array{title:string,copy:string,priority:string,impact_label:string,actions:array<int, array{label:string,url:string}>}>
+     */
+    private function build_quick_wins(array $priorityOpportunities): array {
+        $items = [];
+
+        foreach (array_slice($priorityOpportunities, 0, 3) as $opportunity) {
+            $priority = (string) ($opportunity['priority'] ?? 'medium');
+            $items[] = [
+                'title' => (string) ($opportunity['title'] ?? ''),
+                'copy' => (string) ($opportunity['impact'] ?? ''),
+                'priority' => $priority,
+                'impact_label' => $priority === 'high' ? __('Impact fort', 'wp-rank-tracker') : ($priority === 'medium' ? __('Impact moyen', 'wp-rank-tracker') : __('Impact utile', 'wp-rank-tracker')),
+                'actions' => is_array($opportunity['actions'] ?? null) ? array_slice($opportunity['actions'], 0, 2) : [],
+            ];
+        }
+
+        return $items;
+    }
+
     private function make_step(bool $done, string $title, string $copy): array {
         return [
             'status' => $done ? 'done' : 'todo',
@@ -2392,6 +2609,24 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return [];
+    }
+
+    /**
+     * @return array<int, array{label:string,url:string}>
+     */
+    private function build_actions_from_page_url(string $url): array {
+        $postId = url_to_postid($url);
+        if ($postId <= 0) {
+            return [];
+        }
+
+        $post = get_post($postId);
+        if (!$post instanceof WP_Post) {
+            return [];
+        }
+
+        $viewUrl = get_permalink($post);
+        return $this->build_post_actions($post, is_string($viewUrl) ? $viewUrl : '');
     }
 
     private function shorten_label(string $label, int $limit = 48): string {
