@@ -7,6 +7,7 @@ if (!defined('ABSPATH')) {
 final class WP_Rank_Tracker_Admin {
     private const OPTION_KEY = 'wp_rank_tracker_settings';
     private const REPORT_OPTION_KEY = 'wp_rank_tracker_gsc_report';
+    private const REPORT_HISTORY_OPTION_KEY = 'wp_rank_tracker_gsc_report_history';
     private const SERP_REPORT_OPTION_KEY = 'wp_rank_tracker_serp_report';
     private const SERP_HISTORY_OPTION_KEY = 'wp_rank_tracker_serp_history';
     private const MENU_SLUG = 'wp-rank-tracker';
@@ -143,7 +144,7 @@ final class WP_Rank_Tracker_Admin {
                     $this->redirect_with_notice('import-error', $importResult->get_error_message());
                 }
 
-                update_option(self::REPORT_OPTION_KEY, $importResult, false);
+                $this->store_google_report($importResult);
                 $this->redirect_with_notice('settings-and-import-success');
             }
         }
@@ -172,8 +173,29 @@ final class WP_Rank_Tracker_Admin {
             $this->redirect_with_notice('import-error', $report->get_error_message());
         }
 
-        update_option(self::REPORT_OPTION_KEY, $report, false);
+        $this->store_google_report($report);
         $this->redirect_with_notice('import-success');
+    }
+
+    public function handle_scheduled_google_refresh(): void {
+        $settings = $this->get_settings();
+        $propertyUri = (string) ($settings['gsc_property_uri'] ?? '');
+
+        if ($propertyUri === '') {
+            return;
+        }
+
+        $centralStatus = $this->get_central_google_status($settings);
+        if (empty($centralStatus['connected']) && (string) ($settings['google_refresh_token'] ?? '') === '') {
+            return;
+        }
+
+        $report = $this->run_google_import($settings);
+        if (is_wp_error($report)) {
+            return;
+        }
+
+        $this->store_google_report($report);
     }
 
     public function handle_import_serp(): void {
@@ -214,12 +236,16 @@ final class WP_Rank_Tracker_Admin {
 
         $settings = $this->get_settings();
         $report = $this->get_report();
+        $previousReport = $this->get_previous_google_report();
         $serpReport = $this->get_serp_report();
         $serpPreviousReport = $this->get_previous_serp_report();
         $localAudit = $this->build_local_audit();
         $summary = $this->build_summary($report);
         $pageRows = $this->group_rows_by_page($report['rows']);
+        $previousPageRows = $this->group_rows_by_page($previousReport['rows']);
         $comparisonRows = $this->build_comparison_rows($localAudit['pages'], $pageRows);
+        $googleTrendRows = $this->build_google_trend_rows($pageRows, $previousPageRows);
+        $googleQueryPodium = $this->build_google_query_podium($report['rows']);
         $marketRows = $this->build_market_watch_rows($settings, $localAudit['pages'], $report['rows']);
         $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport, $serpPreviousReport);
         $centralStatus = $this->get_central_google_status($settings);
@@ -320,6 +346,12 @@ final class WP_Rank_Tracker_Admin {
             <section class="wrt-card wrt-table-card">
                 <h2><?php esc_html_e('Google Search Console', 'wp-rank-tracker'); ?></h2>
                 <p><?php esc_html_e('Connecte Google, choisis la propriete Search Console a analyser, puis enregistre. L import se lance automatiquement et te permettra de comparer ta lecture locale avec la vision reelle de Google.', 'wp-rank-tracker'); ?></p>
+                <div class="wrt-local-stats">
+                    <div><strong><?php echo esc_html($isConnected ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('Google connecte', 'wp-rank-tracker'); ?></span></div>
+                    <div><strong><?php echo esc_html($selectedProperty !== '' ? $selectedProperty : __('Aucune', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('propriete actuelle', 'wp-rank-tracker'); ?></span></div>
+                    <div><strong><?php echo esc_html((string) count($googleProperties)); ?></strong><span><?php esc_html_e('proprietes detectees', 'wp-rank-tracker'); ?></span></div>
+                    <div><strong><?php echo esc_html($previousReport['fetched_at'] !== '' ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('historique disponible', 'wp-rank-tracker'); ?></span></div>
+                </div>
                 <div class="wrt-inline-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <input type="hidden" name="action" value="wp_rank_tracker_connect_google" />
@@ -376,8 +408,38 @@ final class WP_Rank_Tracker_Admin {
             </section>
 
             <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Podium Google actuel', 'wp-rank-tracker'); ?></h2>
+                <?php if ($googleQueryPodium === []) : ?>
+                    <p><?php esc_html_e('Aucune requete disponible pour le moment.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Rang', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Requete', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Clics', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($googleQueryPodium as $podiumRow) : ?>
+                                <tr>
+                                    <td><strong>#<?php echo esc_html((string) $podiumRow['rank']); ?></strong></td>
+                                    <td><?php echo esc_html($podiumRow['query']); ?></td>
+                                    <td><?php echo esc_html($podiumRow['page']); ?></td>
+                                    <td><?php echo esc_html((string) $podiumRow['clicks']); ?></td>
+                                    <td><?php echo esc_html($this->format_position((float) $podiumRow['position'])); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
                 <h2><?php esc_html_e('Bilan par page', 'wp-rank-tracker'); ?></h2>
-                <?php if ($pageRows === []) : ?>
+                <?php if ($googleTrendRows === []) : ?>
                     <p><?php esc_html_e('Aucune donnee importee pour le moment.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
                     <table class="widefat striped">
@@ -388,17 +450,19 @@ final class WP_Rank_Tracker_Admin {
                                 <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
                                 <th>CTR</th>
                                 <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Tendance', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Requete principale', 'wp-rank-tracker'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($pageRows as $pageRow) : ?>
+                            <?php foreach ($googleTrendRows as $pageRow) : ?>
                                 <tr>
                                     <td><strong><?php echo esc_html($pageRow['page']); ?></strong></td>
                                     <td><?php echo esc_html((string) $pageRow['clicks']); ?></td>
                                     <td><?php echo esc_html((string) $pageRow['impressions']); ?></td>
                                     <td><?php echo esc_html($this->format_ctr($pageRow['ctr'])); ?></td>
                                     <td><?php echo esc_html($this->format_position($pageRow['position'])); ?></td>
+                                    <td><?php echo wp_kses_post($pageRow['trend']); ?></td>
                                     <td><?php echo esc_html($pageRow['top_query']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -806,6 +870,45 @@ final class WP_Rank_Tracker_Admin {
     /**
      * @return array<string, mixed>
      */
+    private function get_previous_google_report(): array {
+        $history = get_option(self::REPORT_HISTORY_OPTION_KEY, []);
+        if (!is_array($history) || $history === []) {
+            return $this->empty_report();
+        }
+
+        $previous = $history[0] ?? [];
+        if (!is_array($previous)) {
+            return $this->empty_report();
+        }
+
+        $rows = [];
+        foreach (($previous['rows'] ?? []) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $rows[] = [
+                'page' => esc_url_raw((string) ($row['page'] ?? '')),
+                'query' => sanitize_text_field((string) ($row['query'] ?? '')),
+                'clicks' => (int) ($row['clicks'] ?? 0),
+                'impressions' => (int) ($row['impressions'] ?? 0),
+                'ctr' => (float) ($row['ctr'] ?? 0),
+                'position' => (float) ($row['position'] ?? 0),
+            ];
+        }
+
+        return [
+            'fetched_at' => sanitize_text_field((string) ($previous['fetched_at'] ?? '')),
+            'start_date' => sanitize_text_field((string) ($previous['start_date'] ?? '')),
+            'end_date' => sanitize_text_field((string) ($previous['end_date'] ?? '')),
+            'property_uri' => sanitize_text_field((string) ($previous['property_uri'] ?? '')),
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function build_local_audit(): array {
         $posts = get_posts(
             [
@@ -1187,6 +1290,70 @@ final class WP_Rank_Tracker_Admin {
         );
 
         return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $currentPages
+     * @param array<int, array<string, mixed>> $previousPages
+     * @return array<int, array<string, mixed>>
+     */
+    private function build_google_trend_rows(array $currentPages, array $previousPages): array {
+        if ($currentPages === []) {
+            return [];
+        }
+
+        $previousByPath = [];
+        foreach ($previousPages as $row) {
+            $path = $this->normalize_url_path((string) ($row['page'] ?? ''));
+            if ($path === '') {
+                continue;
+            }
+
+            $previousByPath[$path] = $row;
+        }
+
+        $rows = [];
+        foreach ($currentPages as $row) {
+            $path = $this->normalize_url_path((string) ($row['page'] ?? ''));
+            $previous = $path !== '' && isset($previousByPath[$path]) ? $previousByPath[$path] : null;
+            $previousPosition = $previous !== null ? (float) ($previous['position'] ?? 0) : 0.0;
+            $previousClicks = $previous !== null ? (int) ($previous['clicks'] ?? 0) : 0;
+
+            $row['trend'] = $this->build_google_trend_badge((float) ($row['position'] ?? 0), $previousPosition, (int) ($row['clicks'] ?? 0), $previousClicks);
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function build_google_query_podium(array $rows): array {
+        if ($rows === []) {
+            return [];
+        }
+
+        usort(
+            $rows,
+            static function (array $left, array $right): int {
+                $clickCompare = ((int) ($right['clicks'] ?? 0)) <=> ((int) ($left['clicks'] ?? 0));
+                if ($clickCompare !== 0) {
+                    return $clickCompare;
+                }
+
+                return ((float) ($left['position'] ?? 0)) <=> ((float) ($right['position'] ?? 0));
+            }
+        );
+
+        $podium = [];
+        foreach (array_slice($rows, 0, 3) as $index => $row) {
+            $row['rank'] = $index + 1;
+            $podium[] = $row;
+        }
+
+        return $podium;
     }
 
     /**
@@ -2004,6 +2171,37 @@ final class WP_Rank_Tracker_Admin {
         return sprintf('<span class="wrt-delta wrt-delta-stable">%s</span>', esc_html__('→ stable', 'wp-rank-tracker'));
     }
 
+    private function build_google_trend_badge(float $currentPosition, float $previousPosition, int $currentClicks, int $previousClicks): string {
+        if ($currentPosition <= 0 && $previousPosition <= 0) {
+            return esc_html__('Aucun recul encore', 'wp-rank-tracker');
+        }
+
+        $parts = [];
+
+        if ($previousPosition <= 0 && $currentPosition > 0) {
+            $parts[] = sprintf('<span class="wrt-delta wrt-delta-up">%s</span>', esc_html__('↗ nouvelle page visible', 'wp-rank-tracker'));
+        } else {
+            $positionDelta = $previousPosition - $currentPosition;
+            if ($positionDelta > 0.09) {
+                $parts[] = sprintf('<span class="wrt-delta wrt-delta-up">%s</span>', esc_html(sprintf(__('↑ %s position', 'wp-rank-tracker'), number_format_i18n($positionDelta, 1))));
+            } elseif ($positionDelta < -0.09) {
+                $parts[] = sprintf('<span class="wrt-delta wrt-delta-down">%s</span>', esc_html(sprintf(__('↓ %s position', 'wp-rank-tracker'), number_format_i18n(abs($positionDelta), 1))));
+            } else {
+                $parts[] = sprintf('<span class="wrt-delta wrt-delta-stable">%s</span>', esc_html__('→ position stable', 'wp-rank-tracker'));
+            }
+        }
+
+        $clickDelta = $currentClicks - $previousClicks;
+        if ($clickDelta > 0) {
+            $parts[] = sprintf('<span class="wrt-delta wrt-delta-up">%s</span>', esc_html(sprintf(_n('+%d clic', '+%d clics', $clickDelta, 'wp-rank-tracker'), $clickDelta)));
+        } elseif ($clickDelta < 0) {
+            $loss = abs($clickDelta);
+            $parts[] = sprintf('<span class="wrt-delta wrt-delta-down">%s</span>', esc_html(sprintf(_n('-%d clic', '-%d clics', $loss, 'wp-rank-tracker'), $loss)));
+        }
+
+        return implode(' ', $parts);
+    }
+
     private function build_serp_podium(array $rows): string {
         if ($rows === []) {
             return esc_html__('Aucun resultat', 'wp-rank-tracker');
@@ -2091,6 +2289,31 @@ final class WP_Rank_Tracker_Admin {
 
         update_option(self::SERP_REPORT_OPTION_KEY, $report, false);
         update_option(self::SERP_HISTORY_OPTION_KEY, $history, false);
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     */
+    private function store_google_report(array $report): void {
+        $current = $this->get_report();
+        $history = get_option(self::REPORT_HISTORY_OPTION_KEY, []);
+
+        if (!is_array($history)) {
+            $history = [];
+        }
+
+        if (($current['fetched_at'] ?? '') !== '' && !empty($current['rows'])) {
+            $sameTimestamp = (string) ($current['fetched_at'] ?? '') === (string) ($report['fetched_at'] ?? '');
+            if (!$sameTimestamp) {
+                array_unshift($history, $current);
+            }
+        }
+
+        $history = array_values(array_filter($history, static fn($item): bool => is_array($item)));
+        $history = array_slice($history, 0, 14);
+
+        update_option(self::REPORT_OPTION_KEY, $report, false);
+        update_option(self::REPORT_HISTORY_OPTION_KEY, $history, false);
     }
 
     private function format_ctr(float $ctr): string {

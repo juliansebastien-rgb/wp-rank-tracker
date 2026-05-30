@@ -3,7 +3,7 @@
  * Plugin Name: WP Rank Tracker
  * Plugin URI: https://github.com/juliansebastien-rgb/wp-rank-tracker
  * Description: Suit les mots-cles SEO de votre site WordPress et prepare le suivi de position sur Google et d'autres moteurs.
- * Version: 0.1.13
+ * Version: 0.1.14
  * Author: Le Labo d'Azertaf
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WP_RANK_TRACKER_VERSION', '0.1.13');
+define('WP_RANK_TRACKER_VERSION', '0.1.14');
 define('WP_RANK_TRACKER_FILE', __FILE__);
 define('WP_RANK_TRACKER_DIR', plugin_dir_path(__FILE__));
 define('WP_RANK_TRACKER_URL', plugin_dir_url(__FILE__));
@@ -28,7 +28,8 @@ require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-central-servi
 require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-admin.php';
 
 final class WP_Rank_Tracker {
-    private const VERSION = '0.1.13';
+    private const VERSION = '0.1.14';
+    private const DAILY_GOOGLE_EVENT = 'wp_rank_tracker_refresh_google_daily';
     private const DAILY_SERP_EVENT = 'wp_rank_tracker_refresh_serp_daily';
     private const TRANSIENT_PREFIX = 'wp_rank_tracker_';
     private const GITHUB_REPOSITORY = 'juliansebastien-rgb/wp-rank-tracker';
@@ -57,22 +58,30 @@ final class WP_Rank_Tracker {
 
     public function activate(): void {
         WP_Rank_Tracker_Admin::maybe_seed_defaults();
+        if (!wp_next_scheduled(self::DAILY_GOOGLE_EVENT)) {
+            wp_schedule_event(time() + (30 * MINUTE_IN_SECONDS), 'daily', self::DAILY_GOOGLE_EVENT);
+        }
         if (!wp_next_scheduled(self::DAILY_SERP_EVENT)) {
             wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', self::DAILY_SERP_EVENT);
         }
     }
 
     public function deactivate(): void {
+        wp_clear_scheduled_hook(self::DAILY_GOOGLE_EVENT);
         wp_clear_scheduled_hook(self::DAILY_SERP_EVENT);
     }
 
     public function boot(): void {
+        if (!wp_next_scheduled(self::DAILY_GOOGLE_EVENT)) {
+            wp_schedule_event(time() + (30 * MINUTE_IN_SECONDS), 'daily', self::DAILY_GOOGLE_EVENT);
+        }
         if (!wp_next_scheduled(self::DAILY_SERP_EVENT)) {
             wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', self::DAILY_SERP_EVENT);
         }
 
         $admin = new WP_Rank_Tracker_Admin();
         $admin->boot();
+        add_action(self::DAILY_GOOGLE_EVENT, [$admin, 'handle_scheduled_google_refresh']);
         add_action(self::DAILY_SERP_EVENT, [$admin, 'handle_scheduled_serp_refresh']);
     }
 
