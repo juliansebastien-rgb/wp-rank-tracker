@@ -60,8 +60,8 @@ final class WP_Rank_Tracker_Admin {
 
         add_submenu_page(
             self::MENU_SLUG,
-            __('Local', 'wp-rank-tracker'),
-            __('Local', 'wp-rank-tracker'),
+            __('Tableau de bord', 'wp-rank-tracker'),
+            __('Tableau de bord', 'wp-rank-tracker'),
             'manage_options',
             self::MENU_SLUG,
             [$this, 'render_admin_page']
