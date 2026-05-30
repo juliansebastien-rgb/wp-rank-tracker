@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.12
+Stable tag: 0.1.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,13 @@ Dans ce mode, l'utilisateur renseigne surtout :
 Le site peut s'enregistrer automatiquement sur le service central sans demander de secret serveur a l'utilisateur final.
 
 == Changelog ==
+
+= 0.1.13 =
+* Ajout d un comparatif SERP enrichi avec podium actuel
+* Ajout de l affichage de ton site et de chaque concurrent suivi
+* Ajout de la tendance avec fleches et places gagnees ou perdues
+* Ajout d un historique local des snapshots SERP
+* Ajout d un rafraichissement SERP quotidien automatique via WordPress
 
 = 0.1.2 =
 * Creation du plugin WP Rank Tracker

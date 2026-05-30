@@ -8,6 +8,7 @@ final class WP_Rank_Tracker_Admin {
     private const OPTION_KEY = 'wp_rank_tracker_settings';
     private const REPORT_OPTION_KEY = 'wp_rank_tracker_gsc_report';
     private const SERP_REPORT_OPTION_KEY = 'wp_rank_tracker_serp_report';
+    private const SERP_HISTORY_OPTION_KEY = 'wp_rank_tracker_serp_history';
     private const MENU_SLUG = 'wp-rank-tracker';
     private const MENU_SLUG_GOOGLE = 'wp-rank-tracker-google-search-console';
     private const MENU_SLUG_DATAFORSEO = 'wp-rank-tracker-dataforseo';
@@ -108,6 +109,7 @@ final class WP_Rank_Tracker_Admin {
         check_admin_referer(self::NONCE_ACTION_SETTINGS);
 
         $current = $this->get_settings();
+        $settingsSection = sanitize_key((string) ($_POST['settings_section'] ?? ''));
         $postedClientSecret = sanitize_text_field(wp_unslash((string) ($_POST['google_client_secret'] ?? '')));
         $postedRefreshToken = sanitize_text_field(wp_unslash((string) ($_POST['google_refresh_token'] ?? '')));
         $postedDataForSeoPassword = sanitize_text_field(wp_unslash((string) ($_POST['dataforseo_password'] ?? '')));
@@ -133,7 +135,7 @@ final class WP_Rank_Tracker_Admin {
         update_option(self::OPTION_KEY, $settings, false);
 
         $propertyUri = (string) ($settings['gsc_property_uri'] ?? '');
-        if ($propertyUri !== '') {
+        if ($settingsSection === 'google' && $propertyUri !== '') {
             $centralStatus = $this->get_central_google_status($settings);
             if (!empty($centralStatus['connected'])) {
                 $importResult = $this->run_google_import($settings);
@@ -144,6 +146,16 @@ final class WP_Rank_Tracker_Admin {
                 update_option(self::REPORT_OPTION_KEY, $importResult, false);
                 $this->redirect_with_notice('settings-and-import-success');
             }
+        }
+
+        if ($settingsSection === 'dataforseo' && is_array($settings['tracked_keywords']) && $settings['tracked_keywords'] !== []) {
+            $serpReport = $this->run_serp_import($settings);
+            if (is_wp_error($serpReport)) {
+                $this->redirect_with_notice('serp-error', $serpReport->get_error_message());
+            }
+
+            $this->store_serp_report($serpReport);
+            $this->redirect_with_notice('settings-and-serp-success');
         }
 
         $this->redirect_with_notice('settings-saved');
@@ -169,32 +181,30 @@ final class WP_Rank_Tracker_Admin {
         check_admin_referer(self::NONCE_ACTION_IMPORT_SERP);
 
         $settings = $this->get_settings();
-        $centralService = new WP_Rank_Tracker_Central_Service($settings);
-
-        if ($centralService->is_configured()) {
-            $response = $centralService->import_serp_report(
-                (string) $settings['target_domain'],
-                is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [],
-                is_array($settings['competitors']) ? $settings['competitors'] : [],
-                (string) $settings['dataforseo_location_name'],
-                (string) $settings['dataforseo_language_name'],
-                (int) $settings['dataforseo_depth']
-            );
-            if (is_wp_error($response)) {
-                $this->redirect_with_notice('serp-error', $response->get_error_message());
-            }
-            $report = is_array($response['report'] ?? null) ? $response['report'] : [];
-        } else {
-            $service = new WP_Rank_Tracker_DataForSEO_Service($settings);
-            $report = $service->fetch_serp_snapshot(is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
-        }
+        $report = $this->run_serp_import($settings);
 
         if (is_wp_error($report)) {
             $this->redirect_with_notice('serp-error', $report->get_error_message());
         }
 
-        update_option(self::SERP_REPORT_OPTION_KEY, $report, false);
+        $this->store_serp_report($report);
         $this->redirect_with_notice('serp-success');
+    }
+
+    public function handle_scheduled_serp_refresh(): void {
+        $settings = $this->get_settings();
+        $keywords = is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : [];
+
+        if ($keywords === []) {
+            return;
+        }
+
+        $report = $this->run_serp_import($settings);
+        if (is_wp_error($report)) {
+            return;
+        }
+
+        $this->store_serp_report($report);
     }
 
     public function render_admin_page(): void {
@@ -205,12 +215,13 @@ final class WP_Rank_Tracker_Admin {
         $settings = $this->get_settings();
         $report = $this->get_report();
         $serpReport = $this->get_serp_report();
+        $serpPreviousReport = $this->get_previous_serp_report();
         $localAudit = $this->build_local_audit();
         $summary = $this->build_summary($report);
         $pageRows = $this->group_rows_by_page($report['rows']);
         $comparisonRows = $this->build_comparison_rows($localAudit['pages'], $pageRows);
         $marketRows = $this->build_market_watch_rows($settings, $localAudit['pages'], $report['rows']);
-        $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport);
+        $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport, $serpPreviousReport);
         $centralStatus = $this->get_central_google_status($settings);
         $isConnected = $centralStatus['connected'];
         $isCentralRegistered = !empty($settings['central_site_token']);
@@ -326,6 +337,7 @@ final class WP_Rank_Tracker_Admin {
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
                     <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
+                    <input type="hidden" name="settings_section" value="google" />
                     <input type="hidden" name="target_domain" value="<?php echo esc_attr($settings['target_domain']); ?>" />
                     <input type="hidden" name="tracked_keywords" value="<?php echo esc_attr(implode("\n", $settings['tracked_keywords'])); ?>" />
                     <input type="hidden" name="competitors" value="<?php echo esc_attr(implode("\n", $settings['competitors'])); ?>" />
@@ -464,6 +476,7 @@ final class WP_Rank_Tracker_Admin {
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
                     <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
+                    <input type="hidden" name="settings_section" value="dataforseo" />
                     <input type="hidden" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" />
                     <input type="hidden" name="report_days" value="<?php echo esc_attr((string) $settings['report_days']); ?>" />
                     <table class="form-table" role="presentation">
@@ -556,10 +569,15 @@ final class WP_Rank_Tracker_Admin {
                         ?>
                     </p>
                 <?php endif; ?>
+                <div class="wrt-local-stats">
+                    <div><strong><?php echo esc_html((string) count($settings['tracked_keywords'])); ?></strong><span><?php esc_html_e('mots-cles suivis', 'wp-rank-tracker'); ?></span></div>
+                    <div><strong><?php echo esc_html((string) count($settings['competitors'])); ?></strong><span><?php esc_html_e('concurrents compares', 'wp-rank-tracker'); ?></span></div>
+                    <div><strong><?php echo esc_html($serpPreviousReport['fetched_at'] !== '' ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('historique disponible', 'wp-rank-tracker'); ?></span></div>
+                </div>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_import_serp" />
                     <?php wp_nonce_field(self::NONCE_ACTION_IMPORT_SERP); ?>
-                    <?php submit_button(__('Importer les SERP externes', 'wp-rank-tracker'), 'secondary'); ?>
+                    <?php submit_button(__('Rafraichir maintenant', 'wp-rank-tracker'), 'secondary'); ?>
                 </form>
                 <?php if ($serpComparisonRows === []) : ?>
                     <p><?php esc_html_e('Aucune donnee SERP externe importee pour le moment.', 'wp-rank-tracker'); ?></p>
@@ -569,9 +587,10 @@ final class WP_Rank_Tracker_Admin {
                             <tr>
                                 <th><?php esc_html_e('Mot-cle', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Moteur', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Ton domaine', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Meilleur concurrent', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Lecture', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Ton site', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Concurrents suivis', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Podium actuel', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Tendance', 'wp-rank-tracker'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -579,9 +598,10 @@ final class WP_Rank_Tracker_Admin {
                                 <tr>
                                     <td><strong><?php echo esc_html($row['keyword']); ?></strong></td>
                                     <td><?php echo esc_html($row['engine']); ?></td>
-                                    <td><?php echo esc_html($row['target_rank']); ?></td>
-                                    <td><?php echo esc_html($row['competitor_rank']); ?></td>
-                                    <td><?php echo esc_html($row['note']); ?></td>
+                                    <td><?php echo wp_kses_post($row['target_rank']); ?></td>
+                                    <td><?php echo wp_kses_post($row['competitors']); ?></td>
+                                    <td><?php echo wp_kses_post($row['podium']); ?></td>
+                                    <td><?php echo wp_kses_post($row['note']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -981,6 +1001,33 @@ final class WP_Rank_Tracker_Admin {
 
     /**
      * @param array<string, mixed> $settings
+     * @return array<string, mixed>|\WP_Error
+     */
+    private function run_serp_import(array $settings) {
+        $centralService = new WP_Rank_Tracker_Central_Service($settings);
+
+        if ($centralService->is_configured()) {
+            $response = $centralService->import_serp_report(
+                (string) $settings['target_domain'],
+                is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [],
+                is_array($settings['competitors']) ? $settings['competitors'] : [],
+                (string) $settings['dataforseo_location_name'],
+                (string) $settings['dataforseo_language_name'],
+                (int) $settings['dataforseo_depth']
+            );
+            if (is_wp_error($response)) {
+                return $response;
+            }
+
+            return is_array($response['report'] ?? null) ? $response['report'] : [];
+        }
+
+        $service = new WP_Rank_Tracker_DataForSEO_Service($settings);
+        return $service->fetch_serp_snapshot(is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
+    }
+
+    /**
+     * @param array<string, mixed> $settings
      * @return array<string, mixed>
      */
     private function ensure_central_site_registration(array $settings): array {
@@ -1177,13 +1224,29 @@ final class WP_Rank_Tracker_Admin {
     private function get_serp_report(): array {
         $report = get_option(self::SERP_REPORT_OPTION_KEY, []);
 
-        if (!is_array($report)) {
-            return [
-                'fetched_at' => '',
-                'location_name' => '',
-                'language_name' => '',
-                'rows' => [],
-            ];
+        return $this->sanitize_serp_report(is_array($report) ? $report : []);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function get_previous_serp_report(): array {
+        $history = get_option(self::SERP_HISTORY_OPTION_KEY, []);
+        if (!is_array($history) || $history === []) {
+            return $this->empty_serp_report();
+        }
+
+        $previous = $history[0] ?? [];
+        return $this->sanitize_serp_report(is_array($previous) ? $previous : []);
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     * @return array<string, mixed>
+     */
+    private function sanitize_serp_report(array $report): array {
+        if ($report === []) {
+            return $this->empty_serp_report();
         }
 
         $rows = [];
@@ -1213,9 +1276,10 @@ final class WP_Rank_Tracker_Admin {
     /**
      * @param array<string, mixed> $settings
      * @param array<string, mixed> $serpReport
+     * @param array<string, mixed> $previousSerpReport
      * @return array<int, array<string, string>>
      */
-    private function build_serp_comparison_rows(array $settings, array $serpReport): array {
+    private function build_serp_comparison_rows(array $settings, array $serpReport, array $previousSerpReport): array {
         $keywords = is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : [];
         $competitors = is_array($settings['competitors'] ?? null) ? array_map([$this, 'sanitize_domain'], $settings['competitors']) : [];
         $targetDomain = $this->sanitize_domain((string) ($settings['target_domain'] ?? ''));
@@ -1231,16 +1295,23 @@ final class WP_Rank_Tracker_Admin {
                     $serpReport['rows'],
                     static fn(array $row): bool => (string) $row['keyword'] === (string) $keyword && (string) $row['engine'] === $engine
                 ));
+                $previousRows = array_values(array_filter(
+                    $previousSerpReport['rows'],
+                    static fn(array $row): bool => (string) $row['keyword'] === (string) $keyword && (string) $row['engine'] === $engine
+                ));
 
                 $targetRank = $this->find_domain_rank($targetDomain, $snapshotRows);
-                $bestCompetitor = $this->find_best_competitor_rank($competitors, $snapshotRows);
+                $previousTargetRank = $this->find_domain_rank($targetDomain, $previousRows);
+                $competitorRows = $this->build_competitor_rank_rows($competitors, $snapshotRows, $previousRows);
+                $bestCompetitorRank = $this->extract_best_competitor_rank($competitorRows);
 
                 $rows[] = [
                     'keyword' => (string) $keyword,
                     'engine' => ucfirst($engine),
-                    'target_rank' => $targetRank > 0 ? '#' . $targetRank : __('Non detecte', 'wp-rank-tracker'),
-                    'competitor_rank' => $bestCompetitor['label'],
-                    'note' => $this->build_serp_note($targetRank, $bestCompetitor['rank']),
+                    'target_rank' => $this->format_rank_with_delta($targetDomain !== '' ? $targetDomain : __('Ton domaine', 'wp-rank-tracker'), $targetRank, $previousTargetRank),
+                    'competitors' => $this->format_competitor_rows($competitorRows),
+                    'podium' => $this->build_serp_podium($snapshotRows),
+                    'note' => $this->build_serp_note($targetRank, $previousTargetRank, $bestCompetitorRank),
                 ];
             }
         }
@@ -1842,51 +1913,140 @@ final class WP_Rank_Tracker_Admin {
      * @param array<int, array<string, mixed>> $rows
      * @return array{rank:int,label:string}
      */
-    private function find_best_competitor_rank(array $competitors, array $rows): array {
-        $bestRank = 0;
-        $bestDomain = '';
+    private function build_competitor_rank_rows(array $competitors, array $rows, array $previousRows): array {
+        $items = [];
 
-        foreach ($rows as $row) {
-            $domain = $this->sanitize_domain((string) ($row['domain'] ?? ''));
-            $rank = (int) ($row['rank'] ?? 0);
-
-            if (!in_array($domain, $competitors, true)) {
+        foreach ($competitors as $competitor) {
+            if ($competitor === '') {
                 continue;
             }
 
-            if ($bestRank === 0 || ($rank > 0 && $rank < $bestRank)) {
-                $bestRank = $rank;
-                $bestDomain = $domain;
-            }
-        }
+            $currentRank = $this->find_domain_rank($competitor, $rows);
+            $previousRank = $this->find_domain_rank($competitor, $previousRows);
 
-        if ($bestRank === 0 || $bestDomain === '') {
-            return [
-                'rank' => 0,
-                'label' => __('Aucun concurrent detecte', 'wp-rank-tracker'),
+            $items[] = [
+                'domain' => $competitor,
+                'rank' => $currentRank,
+                'label' => $this->format_rank_with_delta($competitor, $currentRank, $previousRank),
             ];
         }
 
-        return [
-            'rank' => $bestRank,
-            'label' => $bestDomain . ' (#' . $bestRank . ')',
-        ];
+        return $items;
     }
 
-    private function build_serp_note(int $targetRank, int $competitorRank): string {
+    private function extract_best_competitor_rank(array $competitorRows): int {
+        $bestRank = 0;
+
+        foreach ($competitorRows as $row) {
+            $rank = (int) ($row['rank'] ?? 0);
+            if ($rank > 0 && ($bestRank === 0 || $rank < $bestRank)) {
+                $bestRank = $rank;
+            }
+        }
+
+        return $bestRank;
+    }
+
+    private function format_competitor_rows(array $competitorRows): string {
+        if ($competitorRows === []) {
+            return esc_html__('Aucun concurrent renseigne', 'wp-rank-tracker');
+        }
+
+        $chunks = [];
+        foreach ($competitorRows as $row) {
+            $chunks[] = (string) ($row['label'] ?? '');
+        }
+
+        return implode('<br />', array_filter($chunks));
+    }
+
+    private function format_rank_with_delta(string $domainLabel, int $currentRank, int $previousRank): string {
+        $rankLabel = $currentRank > 0 ? '#' . $currentRank : __('Non detecte', 'wp-rank-tracker');
+        $delta = $this->build_rank_delta_badge($currentRank, $previousRank);
+
+        return sprintf(
+            '<strong>%1$s</strong><br /><span class="wrt-rank-line">%2$s</span>%3$s',
+            esc_html($domainLabel),
+            esc_html($rankLabel),
+            $delta !== '' ? ' ' . $delta : ''
+        );
+    }
+
+    private function build_rank_delta_badge(int $currentRank, int $previousRank): string {
+        if ($currentRank === 0 && $previousRank === 0) {
+            return '';
+        }
+
+        if ($previousRank === 0 && $currentRank > 0) {
+            return sprintf('<span class="wrt-delta wrt-delta-up">%s</span>', esc_html__('↗ nouvelle entree', 'wp-rank-tracker'));
+        }
+
+        if ($currentRank === 0 && $previousRank > 0) {
+            return sprintf('<span class="wrt-delta wrt-delta-down">%s</span>', esc_html__('↘ sortie du top', 'wp-rank-tracker'));
+        }
+
+        $delta = $previousRank - $currentRank;
+        if ($delta > 0) {
+            return sprintf(
+                '<span class="wrt-delta wrt-delta-up">%s</span>',
+                esc_html(sprintf(_n('↑ %d place gagnee', '↑ %d places gagnees', $delta, 'wp-rank-tracker'), $delta))
+            );
+        }
+
+        if ($delta < 0) {
+            $lost = abs($delta);
+            return sprintf(
+                '<span class="wrt-delta wrt-delta-down">%s</span>',
+                esc_html(sprintf(_n('↓ %d place perdue', '↓ %d places perdues', $lost, 'wp-rank-tracker'), $lost))
+            );
+        }
+
+        return sprintf('<span class="wrt-delta wrt-delta-stable">%s</span>', esc_html__('→ stable', 'wp-rank-tracker'));
+    }
+
+    private function build_serp_podium(array $rows): string {
+        if ($rows === []) {
+            return esc_html__('Aucun resultat', 'wp-rank-tracker');
+        }
+
+        usort(
+            $rows,
+            static fn(array $left, array $right): int => ((int) ($left['rank'] ?? 0)) <=> ((int) ($right['rank'] ?? 0))
+        );
+
+        $topRows = array_slice($rows, 0, 3);
+        $chunks = [];
+        foreach ($topRows as $row) {
+            $rank = (int) ($row['rank'] ?? 0);
+            $domain = $this->sanitize_domain((string) ($row['domain'] ?? ''));
+            $chunks[] = sprintf(
+                '<span class="wrt-podium-item"><strong>#%1$d</strong> %2$s</span>',
+                $rank,
+                esc_html($domain !== '' ? $domain : __('Resultat non identifie', 'wp-rank-tracker'))
+            );
+        }
+
+        return implode('<br />', $chunks);
+    }
+
+    private function build_serp_note(int $targetRank, int $previousTargetRank, int $competitorRank): string {
+        $trend = $this->build_rank_delta_badge($targetRank, $previousTargetRank);
+
         if ($targetRank > 0 && ($competitorRank === 0 || $targetRank < $competitorRank)) {
-            return __('Ton domaine passe devant les concurrents suivis sur cet echantillon.', 'wp-rank-tracker');
+            $message = __('Ton site passe devant les concurrents suivis sur ce mot-cle.', 'wp-rank-tracker');
+        } elseif ($targetRank > 0 && $competitorRank > 0) {
+            $message = __('Au moins un concurrent suivi passe encore devant ton site sur cette SERP.', 'wp-rank-tracker');
+        } elseif ($targetRank === 0 && $competitorRank > 0) {
+            $message = __('Tes concurrents sont visibles, mais ton site n apparait pas encore dans la profondeur analysee.', 'wp-rank-tracker');
+        } else {
+            $message = __('Aucun domaine suivi n a ete detecte dans la profondeur analysee.', 'wp-rank-tracker');
         }
 
-        if ($targetRank > 0 && $competitorRank > 0) {
-            return __('Un concurrent suivi passe devant ton domaine sur cette SERP.', 'wp-rank-tracker');
+        if ($trend === '') {
+            return esc_html($message);
         }
 
-        if ($targetRank === 0 && $competitorRank > 0) {
-            return __('Tes concurrents apparaissent, mais pas encore ton domaine.', 'wp-rank-tracker');
-        }
-
-        return __('Aucun domaine suivi detecte dans la profondeur analysee.', 'wp-rank-tracker');
+        return $trend . '<br /><span class="wrt-trend-copy">' . esc_html($message) . '</span>';
     }
 
     private function empty_report(): array {
@@ -1897,6 +2057,40 @@ final class WP_Rank_Tracker_Admin {
             'property_uri' => '',
             'rows' => [],
         ];
+    }
+
+    private function empty_serp_report(): array {
+        return [
+            'fetched_at' => '',
+            'location_name' => '',
+            'language_name' => '',
+            'rows' => [],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     */
+    private function store_serp_report(array $report): void {
+        $current = $this->get_serp_report();
+        $history = get_option(self::SERP_HISTORY_OPTION_KEY, []);
+
+        if (!is_array($history)) {
+            $history = [];
+        }
+
+        if (($current['fetched_at'] ?? '') !== '' && !empty($current['rows'])) {
+            $sameTimestamp = (string) ($current['fetched_at'] ?? '') === (string) ($report['fetched_at'] ?? '');
+            if (!$sameTimestamp) {
+                array_unshift($history, $current);
+            }
+        }
+
+        $history = array_values(array_filter($history, static fn($item): bool => is_array($item)));
+        $history = array_slice($history, 0, 14);
+
+        update_option(self::SERP_REPORT_OPTION_KEY, $report, false);
+        update_option(self::SERP_HISTORY_OPTION_KEY, $history, false);
     }
 
     private function format_ctr(float $ctr): string {
@@ -1922,6 +2116,7 @@ final class WP_Rank_Tracker_Admin {
         $messages = [
             'settings-saved' => __('Configuration enregistree.', 'wp-rank-tracker'),
             'settings-and-import-success' => __('Configuration enregistree et import Search Console lance automatiquement.', 'wp-rank-tracker'),
+            'settings-and-serp-success' => __('Configuration enregistree et import SERP externe lance automatiquement.', 'wp-rank-tracker'),
             'local-refresh-success' => __('Bilan local mis a jour.', 'wp-rank-tracker'),
             'import-success' => __('Import Search Console termine.', 'wp-rank-tracker'),
             'import-error' => $message !== '' ? $message : __('Erreur pendant l import Search Console.', 'wp-rank-tracker'),

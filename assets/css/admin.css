@@ -260,6 +260,45 @@
     color: #0f172a;
 }
 
+.wrt-rank-line {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.wrt-delta {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.wrt-delta-up {
+    background: #ecfdf5;
+    color: #166534;
+}
+
+.wrt-delta-down {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.wrt-delta-stable {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.wrt-podium-item {
+    display: inline-block;
+    line-height: 1.6;
+}
+
+.wrt-trend-copy {
+    color: #475569;
+}
+
 @media (max-width: 960px) {
     .wrt-hero,
     .wrt-workspace {
