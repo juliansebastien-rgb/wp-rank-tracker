@@ -142,6 +142,174 @@
     margin-bottom: 24px;
 }
 
+.wrt-dashboard {
+    margin-bottom: 24px;
+}
+
+.wrt-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 18px;
+}
+
+.wrt-metric-card,
+.wrt-panel {
+    padding: 18px;
+    border: 1px solid #d0d7de;
+    border-radius: 14px;
+    background: #f8fafc;
+}
+
+.wrt-metric-label,
+.wrt-metric-copy {
+    display: block;
+}
+
+.wrt-metric-label {
+    color: #64748b;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.wrt-metric-value {
+    display: block;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1.1;
+    color: #0f172a;
+}
+
+.wrt-metric-copy {
+    margin-top: 8px;
+    color: #475569;
+}
+
+.wrt-dashboard-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.wrt-panel h3 {
+    margin-top: 0;
+}
+
+.wrt-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.wrt-step-list {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.wrt-step + .wrt-step {
+    margin-top: 12px;
+}
+
+.wrt-step {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+.wrt-step p {
+    margin: 4px 0 0;
+    color: #475569;
+}
+
+.wrt-step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 68px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.wrt-step-done .wrt-step-badge {
+    background: #ecfdf5;
+    color: #166534;
+}
+
+.wrt-step-todo .wrt-step-badge {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.wrt-alert-list {
+    display: grid;
+    gap: 12px;
+}
+
+.wrt-alert {
+    padding: 14px 16px;
+    border-radius: 12px;
+}
+
+.wrt-alert p {
+    margin: 6px 0 0;
+}
+
+.wrt-alert-high {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.wrt-alert-medium {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.wrt-alert-low {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.wrt-chart-list {
+    display: grid;
+    gap: 12px;
+}
+
+.wrt-chart-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.wrt-chart-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.wrt-chart-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb 0%, #0ea5e9 100%);
+}
+
+.wrt-chart-bar-rank span {
+    background: linear-gradient(90deg, #16a34a 0%, #84cc16 100%);
+}
+
+.wrt-empty-copy {
+    color: #64748b;
+}
+
 .wrt-local-stats div {
     min-width: 180px;
     padding: 14px 16px;
@@ -339,9 +507,18 @@
     color: #0f172a;
 }
 
+.wrt-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
 @media (max-width: 960px) {
     .wrt-hero,
-    .wrt-workspace {
+    .wrt-workspace,
+    .wrt-dashboard-grid,
+    .wrt-dashboard-panels {
         grid-template-columns: 1fr;
     }
 }

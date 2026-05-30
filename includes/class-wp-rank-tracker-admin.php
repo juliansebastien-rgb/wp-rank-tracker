@@ -255,6 +255,12 @@ final class WP_Rank_Tracker_Admin {
         $googleProperties = $this->get_google_properties($settings, $isConnected);
         $selectedProperty = $this->resolve_selected_property($settings, $centralStatus, $googleProperties);
         $currentSection = $this->get_current_section();
+        $setupSteps = $this->build_setup_steps($settings, $localAudit, $isConnected, $selectedProperty, $serpReport);
+        $dashboardMetrics = $this->build_dashboard_metrics($localAudit, $summary, $priorityOpportunities, $googleTrendRows, $serpComparisonRows);
+        $dashboardAlerts = $this->build_dashboard_alerts($settings, $isConnected, $selectedProperty, $priorityOpportunities, $googleTrendRows, $serpComparisonRows);
+        $quickActions = $this->build_quick_actions($settings, $priorityOpportunities);
+        $googleClickChartRows = $this->build_google_click_chart_rows($pageRows);
+        $serpVisibilityChartRows = $this->build_serp_visibility_chart_rows($settings, $serpReport);
         ?>
         <div class="wrap wrt-admin">
             <h1><?php esc_html_e('WP Rank Tracker', 'wp-rank-tracker'); ?></h1>
@@ -281,6 +287,97 @@ final class WP_Rank_Tracker_Admin {
             </div>
 
             <?php if ($currentSection === 'local') : ?>
+            <section class="wrt-card wrt-dashboard">
+                <div class="wrt-section-head">
+                    <h2><?php esc_html_e('Tableau de bord actionnable', 'wp-rank-tracker'); ?></h2>
+                    <div class="wrt-quick-actions">
+                        <?php foreach ($quickActions as $action) : ?>
+                            <a class="button <?php echo esc_attr($action['class']); ?>" href="<?php echo esc_url($action['url']); ?>">
+                                <?php echo esc_html($action['label']); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div class="wrt-dashboard-grid">
+                    <?php foreach ($dashboardMetrics as $metric) : ?>
+                        <article class="wrt-metric-card">
+                            <span class="wrt-metric-label"><?php echo esc_html($metric['label']); ?></span>
+                            <strong class="wrt-metric-value"><?php echo esc_html($metric['value']); ?></strong>
+                            <span class="wrt-metric-copy"><?php echo esc_html($metric['copy']); ?></span>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+                <div class="wrt-dashboard-panels">
+                    <section class="wrt-panel">
+                        <h3><?php esc_html_e('Parcours conseille', 'wp-rank-tracker'); ?></h3>
+                        <ol class="wrt-step-list">
+                            <?php foreach ($setupSteps as $step) : ?>
+                                <li class="wrt-step wrt-step-<?php echo esc_attr($step['status']); ?>">
+                                    <span class="wrt-step-badge"><?php echo esc_html($step['badge']); ?></span>
+                                    <div>
+                                        <strong><?php echo esc_html($step['title']); ?></strong>
+                                        <p><?php echo esc_html($step['copy']); ?></p>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                    </section>
+                    <section class="wrt-panel">
+                        <h3><?php esc_html_e('Alertes du moment', 'wp-rank-tracker'); ?></h3>
+                        <?php if ($dashboardAlerts === []) : ?>
+                            <p class="wrt-empty-copy"><?php esc_html_e('Aucune alerte bloquante pour le moment.', 'wp-rank-tracker'); ?></p>
+                        <?php else : ?>
+                            <div class="wrt-alert-list">
+                                <?php foreach ($dashboardAlerts as $alert) : ?>
+                                    <article class="wrt-alert wrt-alert-<?php echo esc_attr($alert['priority']); ?>">
+                                        <strong><?php echo esc_html($alert['title']); ?></strong>
+                                        <p><?php echo esc_html($alert['copy']); ?></p>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                </div>
+                <div class="wrt-dashboard-panels">
+                    <section class="wrt-panel">
+                        <h3><?php esc_html_e('Pages qui apportent le plus de clics', 'wp-rank-tracker'); ?></h3>
+                        <?php if ($googleClickChartRows === []) : ?>
+                            <p class="wrt-empty-copy"><?php esc_html_e('Connecte Google pour afficher ce graphique.', 'wp-rank-tracker'); ?></p>
+                        <?php else : ?>
+                            <div class="wrt-chart-list">
+                                <?php foreach ($googleClickChartRows as $row) : ?>
+                                    <div class="wrt-chart-row">
+                                        <div class="wrt-chart-head">
+                                            <span><?php echo esc_html($row['label']); ?></span>
+                                            <strong><?php echo esc_html($row['value_label']); ?></strong>
+                                        </div>
+                                        <div class="wrt-chart-bar"><span style="width: <?php echo esc_attr((string) $row['width']); ?>%"></span></div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                    <section class="wrt-panel">
+                        <h3><?php esc_html_e('Positions de tes mots-cles suivis', 'wp-rank-tracker'); ?></h3>
+                        <?php if ($serpVisibilityChartRows === []) : ?>
+                            <p class="wrt-empty-copy"><?php esc_html_e('Ajoute des mots-cles et lance DataForSEO pour visualiser leur position actuelle.', 'wp-rank-tracker'); ?></p>
+                        <?php else : ?>
+                            <div class="wrt-chart-list">
+                                <?php foreach ($serpVisibilityChartRows as $row) : ?>
+                                    <div class="wrt-chart-row">
+                                        <div class="wrt-chart-head">
+                                            <span><?php echo esc_html($row['label']); ?></span>
+                                            <strong><?php echo esc_html($row['value_label']); ?></strong>
+                                        </div>
+                                        <div class="wrt-chart-bar wrt-chart-bar-rank"><span style="width: <?php echo esc_attr((string) $row['width']); ?>%"></span></div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                </div>
+            </section>
+
             <section class="wrt-card wrt-local-overview">
                 <h2><?php esc_html_e('Lecture locale de tes pages', 'wp-rank-tracker'); ?></h2>
                 <p><?php esc_html_e('Le plugin commence par analyser tes pages telles qu elles sont construites dans WordPress. Il repere pour chaque page le sujet principal qu elle semble cibler, avant de comparer ensuite cette lecture avec les donnees reelles de Google.', 'wp-rank-tracker'); ?></p>
@@ -317,6 +414,13 @@ final class WP_Rank_Tracker_Admin {
                                     <td>
                                         <strong><?php echo esc_html($pageAudit['title']); ?></strong><br />
                                         <span class="description"><?php echo esc_html($pageAudit['type_label'] . ' - ' . $pageAudit['url']); ?></span>
+                                        <div class="wrt-row-actions">
+                                            <?php foreach ($pageAudit['actions'] as $action) : ?>
+                                                <a class="button button-small" href="<?php echo esc_url($action['url']); ?>">
+                                                    <?php echo esc_html($action['label']); ?>
+                                                </a>
+                                            <?php endforeach; ?>
+                                        </div>
                                     </td>
                                     <td><?php echo esc_html($pageAudit['primary_keyword']); ?></td>
                                     <td><?php echo esc_html(implode(', ', $pageAudit['secondary_keywords'])); ?></td>
@@ -457,6 +561,15 @@ final class WP_Rank_Tracker_Admin {
                                 <p class="wrt-opportunity-why"><?php echo esc_html($opportunity['why']); ?></p>
                                 <p class="wrt-opportunity-action"><?php echo esc_html($opportunity['action']); ?></p>
                                 <p class="wrt-opportunity-impact"><?php echo esc_html($opportunity['impact']); ?></p>
+                                <?php if ($opportunity['actions'] !== []) : ?>
+                                    <div class="wrt-row-actions">
+                                        <?php foreach ($opportunity['actions'] as $action) : ?>
+                                            <a class="button button-small" href="<?php echo esc_url($action['url']); ?>">
+                                                <?php echo esc_html($action['label']); ?>
+                                            </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
                     </div>
@@ -1414,24 +1527,28 @@ final class WP_Rank_Tracker_Admin {
             $ctr = (float) ($pageRow['ctr'] ?? 0);
 
             if ($position >= 4.0 && $position <= 15.0 && $impressions >= 20) {
+                $pageActions = $localPage !== null ? (array) ($localPage['actions'] ?? []) : [];
                 $opportunities[] = $this->make_opportunity(
                     __('Page proche de la premiere page forte', 'wp-rank-tracker'),
                     $title !== '' ? $title : __('Page sans titre clair', 'wp-rank-tracker'),
                     sprintf(__('Google voit deja cette page sur "%s" autour de la position %s. Elle est assez proche pour gagner des places avec une optimisation ciblee.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('cette requete', 'wp-rank-tracker'), $this->format_position($position)),
                     sprintf(__('Dans WordPress, retravaille d abord le titre visible, le H1 et les 2 premiers H2 pour reprendre clairement "%s", puis ajoute un bloc de contenu qui repond mieux a cette requete.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('la requete cible', 'wp-rank-tracker')),
                     __('Impact attendu : faire progresser une page deja visible vers une meilleure zone de clics.', 'wp-rank-tracker'),
-                    'high'
+                    'high',
+                    $pageActions
                 );
             }
 
             if ($impressions >= 50 && $ctr > 0 && $ctr < 0.03) {
+                $pageActions = $localPage !== null ? (array) ($localPage['actions'] ?? []) : [];
                 $opportunities[] = $this->make_opportunity(
                     __('Page vue par Google mais peu cliquée', 'wp-rank-tracker'),
                     $title !== '' ? $title : __('Page sans titre clair', 'wp-rank-tracker'),
                     sprintf(__('La page genere des impressions sur "%s", mais le CTR reste faible. Cela suggere souvent un titre ou une promesse peu convaincante dans Google.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('cette requete', 'wp-rank-tracker')),
                     __('Dans WordPress, reformule le titre de la page et si tu as un plugin SEO, retravaille aussi la balise title SEO pour donner une promesse plus concrete, plus precise et plus orientee benefice.', 'wp-rank-tracker'),
                     __('Impact attendu : gagner plus de clics sans attendre une hausse de position.', 'wp-rank-tracker'),
-                    'high'
+                    'high',
+                    $pageActions
                 );
             }
         }
@@ -1447,7 +1564,8 @@ final class WP_Rank_Tracker_Admin {
                 sprintf(__('En local, la page semble cibler "%s", mais Google la relie surtout a "%s".', 'wp-rank-tracker'), (string) ($row['local_keyword'] ?? ''), (string) ($row['google_query'] ?? '')),
                 sprintf(__('Choisis une direction claire : soit tu assumes la requete vue par Google et tu renforces tout le contenu autour de "%s", soit tu crees une page dediee a cette requete pour eviter de melanger deux intentions.', 'wp-rank-tracker'), (string) ($row['google_query'] ?? __('la requete observee', 'wp-rank-tracker'))),
                 __('Impact attendu : eviter les pages floues et aligner le contenu avec la bonne intention de recherche.', 'wp-rank-tracker'),
-                'high'
+                'high',
+                $this->find_page_actions_by_url((string) ($row['url'] ?? ''), $localPages)
             );
         }
 
@@ -1468,7 +1586,8 @@ final class WP_Rank_Tracker_Admin {
                     sprintf(__('Tu suis "%s", et une page locale semble deja la cibler, mais Search Console ne montre pas encore de signal dessus.', 'wp-rank-tracker'), $keyword),
                     sprintf(__('Dans WordPress, renforce cette page autour de "%s" avec un H1 plus net, des H2 plus explicites, un contenu plus concret et quelques liens internes depuis d autres pages du site.', 'wp-rank-tracker'), $keyword),
                     __('Impact attendu : aider Google a comprendre plus vite quelle page doit remonter sur ce sujet.', 'wp-rank-tracker'),
-                    'medium'
+                    'medium',
+                    (array) ($localMatch['actions'] ?? [])
                 );
             }
 
@@ -1486,7 +1605,8 @@ final class WP_Rank_Tracker_Admin {
                     sprintf(__('Sur Google, un concurrent suivi apparait mieux place que ton domaine sur "%s".', 'wp-rank-tracker'), $keyword),
                     sprintf(__('Ouvre la page de ton site qui doit travailler "%s", puis compare-la aux 3 premiers resultats : clarifie la promesse des titres, ajoute une preuve concrete, reponds aux questions pratiques et rends la page plus complete.', 'wp-rank-tracker'), $keyword),
                     __('Impact attendu : reduire l ecart avec les concurrents les mieux positionnes.', 'wp-rank-tracker'),
-                    'high'
+                    'high',
+                    $localMatch !== null ? (array) ($localMatch['actions'] ?? []) : []
                 );
             }
         }
@@ -1506,6 +1626,228 @@ final class WP_Rank_Tracker_Admin {
         );
 
         return array_slice($opportunities, 0, 6);
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<string, mixed> $localAudit
+     * @return array<int, array{status:string,badge:string,title:string,copy:string}>
+     */
+    private function build_setup_steps(array $settings, array $localAudit, bool $isConnected, string $selectedProperty, array $serpReport): array {
+        $trackedKeywords = is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : [];
+        $competitors = is_array($settings['competitors'] ?? null) ? $settings['competitors'] : [];
+
+        return [
+            $this->make_step($localAudit['page_count'] > 0, __('Audit local', 'wp-rank-tracker'), __('Le site a deja ete scanne localement. Tu peux relire les mots-cles detectes page par page.', 'wp-rank-tracker')),
+            $this->make_step($isConnected, __('Connexion Google', 'wp-rank-tracker'), $isConnected ? __('Google est connecte. Les donnees Search Console peuvent etre importees automatiquement.', 'wp-rank-tracker') : __('Connecte Google pour confronter l audit local aux vraies requetes et positions observees.', 'wp-rank-tracker')),
+            $this->make_step($selectedProperty !== '', __('Propriete choisie', 'wp-rank-tracker'), $selectedProperty !== '' ? __('Une propriete Search Console est selectionnee pour les imports quotidiens.', 'wp-rank-tracker') : __('Choisis la propriete Search Console du site pour activer le suivi Google.', 'wp-rank-tracker')),
+            $this->make_step($trackedKeywords !== [], __('Mots-cles suivis', 'wp-rank-tracker'), $trackedKeywords !== [] ? __('Des mots-cles sont deja surveilles pour guider le suivi et les opportunites.', 'wp-rank-tracker') : __('Ajoute tes mots-cles prioritaires pour orienter les analyses et le comparatif.', 'wp-rank-tracker')),
+            $this->make_step($competitors !== [], __('Concurrents', 'wp-rank-tracker'), $competitors !== [] ? __('Des concurrents sont renseignes pour comparer leur presence dans les SERP.', 'wp-rank-tracker') : __('Ajoute 2 ou 3 concurrents directs pour voir qui te passe devant.', 'wp-rank-tracker')),
+            $this->make_step(($serpReport['fetched_at'] ?? '') !== '', __('Comparatif SERP', 'wp-rank-tracker'), ($serpReport['fetched_at'] ?? '') !== '' ? __('Le comparatif externe tourne deja et alimente les podiums concurrentiels.', 'wp-rank-tracker') : __('Lance DataForSEO pour visualiser ton site face aux concurrents sur Google et Bing.', 'wp-rank-tracker')),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $localAudit
+     * @param array<string, int|string|float> $summary
+     * @param array<int, array<string, mixed>> $priorityOpportunities
+     * @param array<int, array<string, mixed>> $googleTrendRows
+     * @param array<int, array<string, string>> $serpComparisonRows
+     * @return array<int, array{label:string,value:string,copy:string}>
+     */
+    private function build_dashboard_metrics(array $localAudit, array $summary, array $priorityOpportunities, array $googleTrendRows, array $serpComparisonRows): array {
+        $highPriorityCount = count(array_filter($priorityOpportunities, static fn(array $item): bool => (string) ($item['priority'] ?? '') === 'high'));
+        $downPagesCount = count(array_filter($googleTrendRows, static fn(array $item): bool => str_contains((string) ($item['trend'] ?? ''), 'wrt-delta-down')));
+        $serpDetectedCount = count(array_filter($serpComparisonRows, static fn(array $item): bool => !str_contains((string) ($item['target_rank'] ?? ''), 'Non detecte')));
+
+        return [
+            [
+                'label' => __('Priorites hautes', 'wp-rank-tracker'),
+                'value' => (string) $highPriorityCount,
+                'copy' => __('Actions a traiter d abord pour esperer un impact SEO utile.', 'wp-rank-tracker'),
+            ],
+            [
+                'label' => __('Pages en baisse', 'wp-rank-tracker'),
+                'value' => (string) $downPagesCount,
+                'copy' => __('Pages Google qui ont perdu du terrain ou des clics depuis le dernier import.', 'wp-rank-tracker'),
+            ],
+            [
+                'label' => __('Requetes Google', 'wp-rank-tracker'),
+                'value' => (string) ($summary['query_count'] ?? 0),
+                'copy' => __('Nombre de requetes actuellement visibles dans Search Console.', 'wp-rank-tracker'),
+            ],
+            [
+                'label' => __('Mots-cles suivis detectes', 'wp-rank-tracker'),
+                'value' => (string) $serpDetectedCount,
+                'copy' => __('Mots-cles suivis pour lesquels ton domaine ressort deja dans les SERP externes.', 'wp-rank-tracker'),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<int, array<string, mixed>> $priorityOpportunities
+     * @param array<int, array<string, mixed>> $googleTrendRows
+     * @param array<int, array<string, string>> $serpComparisonRows
+     * @return array<int, array{priority:string,title:string,copy:string}>
+     */
+    private function build_dashboard_alerts(array $settings, bool $isConnected, string $selectedProperty, array $priorityOpportunities, array $googleTrendRows, array $serpComparisonRows): array {
+        $alerts = [];
+
+        if (!$isConnected) {
+            $alerts[] = [
+                'priority' => 'high',
+                'title' => __('Google n est pas encore connecte', 'wp-rank-tracker'),
+                'copy' => __('Le plugin peut deja analyser tes pages, mais il lui manque la vision reelle de Google pour prioriser les actions.', 'wp-rank-tracker'),
+            ];
+        } elseif ($selectedProperty === '') {
+            $alerts[] = [
+                'priority' => 'high',
+                'title' => __('La propriete Search Console n est pas choisie', 'wp-rank-tracker'),
+                'copy' => __('Choisis la propriete du site pour activer les imports automatiques et les tendances Google.', 'wp-rank-tracker'),
+            ];
+        }
+
+        $firstHighOpportunity = $priorityOpportunities[0] ?? null;
+        if (is_array($firstHighOpportunity) && (string) ($firstHighOpportunity['priority'] ?? '') === 'high') {
+            $alerts[] = [
+                'priority' => 'high',
+                'title' => __('Une action forte est disponible', 'wp-rank-tracker'),
+                'copy' => (string) ($firstHighOpportunity['title'] ?? ''),
+            ];
+        }
+
+        foreach ($googleTrendRows as $row) {
+            if (str_contains((string) ($row['trend'] ?? ''), 'wrt-delta-down')) {
+                $alerts[] = [
+                    'priority' => 'medium',
+                    'title' => __('Une page perd du terrain dans Google', 'wp-rank-tracker'),
+                    'copy' => sprintf(__('La page %s montre une baisse recente. Elle merite une verification rapide.', 'wp-rank-tracker'), (string) ($row['page'] ?? __('Sans titre', 'wp-rank-tracker'))),
+                ];
+                break;
+            }
+        }
+
+        foreach ($serpComparisonRows as $row) {
+            if (str_contains((string) ($row['note'] ?? ''), 'concurrent')) {
+                $alerts[] = [
+                    'priority' => 'medium',
+                    'title' => __('Un concurrent ressort devant toi', 'wp-rank-tracker'),
+                    'copy' => sprintf(__('Sur %s, un concurrent suivi reste mieux place que ton domaine.', 'wp-rank-tracker'), (string) ($row['keyword'] ?? __('ce mot-cle', 'wp-rank-tracker'))),
+                ];
+                break;
+            }
+        }
+
+        if ((is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : []) === []) {
+            $alerts[] = [
+                'priority' => 'low',
+                'title' => __('Aucun mot-cle suivi pour le moment', 'wp-rank-tracker'),
+                'copy' => __('Ajoute tes mots-cles prioritaires pour transformer les analyses en suivi concret.', 'wp-rank-tracker'),
+            ];
+        }
+
+        return array_slice($alerts, 0, 4);
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<int, array<string, mixed>> $priorityOpportunities
+     * @return array<int, array{label:string,url:string,class:string}>
+     */
+    private function build_quick_actions(array $settings, array $priorityOpportunities): array {
+        $actions = [
+            [
+                'label' => __('Ouvrir Google Search Console', 'wp-rank-tracker'),
+                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_GOOGLE),
+                'class' => 'button-primary',
+            ],
+            [
+                'label' => __('Ouvrir DataForSEO', 'wp-rank-tracker'),
+                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_DATAFORSEO),
+                'class' => '',
+            ],
+        ];
+
+        $firstOpportunity = $priorityOpportunities[0] ?? null;
+        if (is_array($firstOpportunity) && !empty($firstOpportunity['actions']) && is_array($firstOpportunity['actions'])) {
+            $firstAction = $firstOpportunity['actions'][0] ?? null;
+            if (is_array($firstAction) && !empty($firstAction['url']) && !empty($firstAction['label'])) {
+                array_unshift($actions, [
+                    'label' => __('Traiter la priorite #1', 'wp-rank-tracker'),
+                    'url' => (string) $firstAction['url'],
+                    'class' => 'button-primary',
+                ]);
+            }
+        }
+
+        return array_slice($actions, 0, 3);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $pageRows
+     * @return array<int, array{label:string,value_label:string,width:float}>
+     */
+    private function build_google_click_chart_rows(array $pageRows): array {
+        if ($pageRows === []) {
+            return [];
+        }
+
+        $topRows = array_slice($pageRows, 0, 5);
+        $maxClicks = max(array_map(static fn(array $row): int => (int) ($row['clicks'] ?? 0), $topRows));
+        $maxClicks = max($maxClicks, 1);
+        $chartRows = [];
+
+        foreach ($topRows as $row) {
+            $label = $this->shorten_label((string) ($row['page'] ?? ''));
+            $clicks = (int) ($row['clicks'] ?? 0);
+            $chartRows[] = [
+                'label' => $label,
+                'value_label' => sprintf(_n('%d clic', '%d clics', $clicks, 'wp-rank-tracker'), $clicks),
+                'width' => round(($clicks / $maxClicks) * 100, 2),
+            ];
+        }
+
+        return $chartRows;
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<string, mixed> $serpReport
+     * @return array<int, array{label:string,value_label:string,width:float}>
+     */
+    private function build_serp_visibility_chart_rows(array $settings, array $serpReport): array {
+        $keywords = is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : [];
+        $targetDomain = $this->sanitize_domain((string) ($settings['target_domain'] ?? ''));
+
+        if ($keywords === [] || $targetDomain === '' || empty($serpReport['rows'])) {
+            return [];
+        }
+
+        $rows = [];
+        foreach (array_slice($keywords, 0, 5) as $keyword) {
+            $googleRows = array_values(array_filter(
+                $serpReport['rows'],
+                static fn(array $row): bool => (string) ($row['engine'] ?? '') === 'google' && (string) ($row['keyword'] ?? '') === (string) $keyword
+            ));
+            $rank = $this->find_domain_rank($targetDomain, $googleRows);
+            $rows[] = [
+                'label' => $this->shorten_label((string) $keyword),
+                'value_label' => $rank > 0 ? '#' . $rank : __('Non detecte', 'wp-rank-tracker'),
+                'width' => $rank > 0 ? max(8, 100 - (($rank - 1) * 8)) : 4,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function make_step(bool $done, string $title, string $copy): array {
+        return [
+            'status' => $done ? 'done' : 'todo',
+            'badge' => $done ? __('OK', 'wp-rank-tracker') : __('A faire', 'wp-rank-tracker'),
+            'title' => $title,
+            'copy' => $copy,
+        ];
     }
 
     /**
@@ -1680,14 +2022,17 @@ final class WP_Rank_Tracker_Admin {
         $secondaryKeywords = array_slice(array_unique($secondaryKeywords), 0, 3);
 
         $recommendations = $this->build_local_recommendations($title, $slugPhrase, $content, $topTerms, $headings, $primaryKeyword);
+        $actions = $this->build_post_actions($post, is_string($url) ? $url : '');
 
         return [
+            'post_id' => (int) $post->ID,
             'title' => $title !== '' ? $title : __('Sans titre', 'wp-rank-tracker'),
             'url' => is_string($url) ? $url : '',
             'type_label' => $post->post_type === 'page' ? __('Page', 'wp-rank-tracker') : __('Article', 'wp-rank-tracker'),
             'primary_keyword' => $primaryKeyword,
             'secondary_keywords' => $secondaryKeywords !== [] ? $secondaryKeywords : [__('Aucun terme fort detecte', 'wp-rank-tracker')],
             'recommendations' => $recommendations,
+            'actions' => $actions,
         ];
     }
 
@@ -1917,7 +2262,7 @@ final class WP_Rank_Tracker_Admin {
     /**
      * @return array{title:string,page:string,why:string,action:string,impact:string,priority:string,priority_label:string}
      */
-    private function make_opportunity(string $title, string $page, string $why, string $action, string $impact, string $priority): array {
+    private function make_opportunity(string $title, string $page, string $why, string $action, string $impact, string $priority, array $actions = []): array {
         $priorityLabels = [
             'high' => __('A faire en premier', 'wp-rank-tracker'),
             'medium' => __('A faire ensuite', 'wp-rank-tracker'),
@@ -1932,6 +2277,7 @@ final class WP_Rank_Tracker_Admin {
             'impact' => $impact,
             'priority' => $priority,
             'priority_label' => $priorityLabels[$priority] ?? $priorityLabels['medium'],
+            'actions' => $actions,
         ];
     }
 
@@ -1954,6 +2300,94 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return $content;
+    }
+
+    /**
+     * @return array<int, array{label:string,url:string}>
+     */
+    private function build_post_actions(WP_Post $post, string $viewUrl): array {
+        $actions = [];
+        $editUrl = get_edit_post_link($post->ID, 'raw');
+        if (is_string($editUrl) && $editUrl !== '') {
+            $actions[] = [
+                'label' => __('Modifier', 'wp-rank-tracker'),
+                'url' => $editUrl,
+            ];
+        }
+
+        $builderAction = $this->get_builder_action($post, $viewUrl);
+        if ($builderAction !== null) {
+            $actions[] = $builderAction;
+        }
+
+        if ($viewUrl !== '') {
+            $actions[] = [
+                'label' => __('Voir la page', 'wp-rank-tracker'),
+                'url' => $viewUrl,
+            ];
+        }
+
+        return $actions;
+    }
+
+    /**
+     * @return array{label:string,url:string}|null
+     */
+    private function get_builder_action(WP_Post $post, string $viewUrl): ?array {
+        $elementorData = get_post_meta($post->ID, '_elementor_data', true);
+        if (is_string($elementorData) && trim($elementorData) !== '') {
+            return [
+                'label' => __('Ouvrir Elementor', 'wp-rank-tracker'),
+                'url' => admin_url('post.php?post=' . $post->ID . '&action=elementor'),
+            ];
+        }
+
+        $diviEnabled = get_post_meta($post->ID, '_et_pb_use_builder', true);
+        if ($diviEnabled === 'on' && $viewUrl !== '') {
+            return [
+                'label' => __('Ouvrir Divi', 'wp-rank-tracker'),
+                'url' => add_query_arg([
+                    'et_fb' => '1',
+                    'PageSpeed' => 'off',
+                ], $viewUrl),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $localPages
+     * @return array<int, array{label:string,url:string}>
+     */
+    private function find_page_actions_by_url(string $url, array $localPages): array {
+        $path = $this->normalize_url_path($url);
+        if ($path === '') {
+            return [];
+        }
+
+        foreach ($localPages as $page) {
+            if ($this->normalize_url_path((string) ($page['url'] ?? '')) !== $path) {
+                continue;
+            }
+
+            return is_array($page['actions'] ?? null) ? $page['actions'] : [];
+        }
+
+        return [];
+    }
+
+    private function shorten_label(string $label, int $limit = 48): string {
+        $label = trim($label);
+        if ($label === '') {
+            return __('Sans libelle', 'wp-rank-tracker');
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            return mb_strlen($label) > $limit ? mb_substr($label, 0, $limit - 1) . '…' : $label;
+        }
+
+        return strlen($label) > $limit ? substr($label, 0, $limit - 3) . '...' : $label;
     }
 
     private function extract_builder_content(WP_Post $post): string {

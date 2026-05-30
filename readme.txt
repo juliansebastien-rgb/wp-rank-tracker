@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.15
+Stable tag: 0.1.16
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,13 @@ Dans ce mode, l'utilisateur renseigne surtout :
 Le site peut s'enregistrer automatiquement sur le service central sans demander de secret serveur a l'utilisateur final.
 
 == Changelog ==
+
+= 0.1.16 =
+* Ajout d un tableau de bord actionnable dans le sous-menu Local
+* Ajout d un parcours conseille pour guider la mise en place du suivi
+* Ajout d alertes du moment pour remonter les blocages et baisses visibles
+* Ajout de mini graphiques pour les clics Google et les positions suivies
+* Ajout d actions directes pour modifier les pages dans WordPress, Elementor ou Divi
 
 = 0.1.15 =
 * Ajout d un bloc Opportunites SEO prioritaires
