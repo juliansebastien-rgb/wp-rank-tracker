@@ -246,6 +246,7 @@ final class WP_Rank_Tracker_Admin {
         $comparisonRows = $this->build_comparison_rows($localAudit['pages'], $pageRows);
         $googleTrendRows = $this->build_google_trend_rows($pageRows, $previousPageRows);
         $googleQueryPodium = $this->build_google_query_podium($report['rows']);
+        $priorityOpportunities = $this->build_priority_opportunities($settings, $localAudit['pages'], $pageRows, $comparisonRows, $serpReport);
         $marketRows = $this->build_market_watch_rows($settings, $localAudit['pages'], $report['rows']);
         $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport, $serpPreviousReport);
         $centralStatus = $this->get_central_google_status($settings);
@@ -434,6 +435,31 @@ final class WP_Rank_Tracker_Admin {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Opportunites SEO prioritaires', 'wp-rank-tracker'); ?></h2>
+                <p><?php esc_html_e('Cette liste transforme les donnees locales, Google et concurrentielles en actions concretes a faire dans WordPress, dans l ordre le plus utile.', 'wp-rank-tracker'); ?></p>
+                <?php if ($priorityOpportunities === []) : ?>
+                    <p><?php esc_html_e('Aucune opportunite prioritaire n a encore ete detectee. Continue a importer Google et les SERP pour enrichir les actions.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <div class="wrt-opportunities">
+                        <?php foreach ($priorityOpportunities as $opportunity) : ?>
+                            <article class="wrt-opportunity">
+                                <div class="wrt-opportunity-head">
+                                    <span class="wrt-recommendation-priority wrt-priority-<?php echo esc_attr($opportunity['priority']); ?>">
+                                        <?php echo esc_html($opportunity['priority_label']); ?>
+                                    </span>
+                                    <strong><?php echo esc_html($opportunity['title']); ?></strong>
+                                </div>
+                                <p class="wrt-opportunity-page"><?php echo esc_html($opportunity['page']); ?></p>
+                                <p class="wrt-opportunity-why"><?php echo esc_html($opportunity['why']); ?></p>
+                                <p class="wrt-opportunity-action"><?php echo esc_html($opportunity['action']); ?></p>
+                                <p class="wrt-opportunity-impact"><?php echo esc_html($opportunity['impact']); ?></p>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </section>
 
@@ -1359,6 +1385,132 @@ final class WP_Rank_Tracker_Admin {
     /**
      * @param array<string, mixed> $settings
      * @param array<int, array<string, mixed>> $localPages
+     * @param array<int, array<string, mixed>> $googlePages
+     * @param array<int, array<string, mixed>> $comparisonRows
+     * @param array<string, mixed> $serpReport
+     * @return array<int, array<string, string>>
+     */
+    private function build_priority_opportunities(array $settings, array $localPages, array $googlePages, array $comparisonRows, array $serpReport): array {
+        $opportunities = [];
+        $targetDomain = $this->sanitize_domain((string) ($settings['target_domain'] ?? ''));
+        $competitors = is_array($settings['competitors'] ?? null) ? array_map([$this, 'sanitize_domain'], $settings['competitors']) : [];
+        $localByPath = [];
+
+        foreach ($localPages as $page) {
+            $path = $this->normalize_url_path((string) ($page['url'] ?? ''));
+            if ($path !== '') {
+                $localByPath[$path] = $page;
+            }
+        }
+
+        foreach ($googlePages as $pageRow) {
+            $pageUrl = (string) ($pageRow['page'] ?? '');
+            $path = $this->normalize_url_path($pageUrl);
+            $localPage = $path !== '' && isset($localByPath[$path]) ? $localByPath[$path] : null;
+            $title = $localPage !== null ? (string) ($localPage['title'] ?? $pageUrl) : $pageUrl;
+            $topQuery = (string) ($pageRow['top_query'] ?? '');
+            $position = (float) ($pageRow['position'] ?? 0);
+            $impressions = (int) ($pageRow['impressions'] ?? 0);
+            $ctr = (float) ($pageRow['ctr'] ?? 0);
+
+            if ($position >= 4.0 && $position <= 15.0 && $impressions >= 20) {
+                $opportunities[] = $this->make_opportunity(
+                    __('Page proche de la premiere page forte', 'wp-rank-tracker'),
+                    $title !== '' ? $title : __('Page sans titre clair', 'wp-rank-tracker'),
+                    sprintf(__('Google voit deja cette page sur "%s" autour de la position %s. Elle est assez proche pour gagner des places avec une optimisation ciblee.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('cette requete', 'wp-rank-tracker'), $this->format_position($position)),
+                    sprintf(__('Dans WordPress, retravaille d abord le titre visible, le H1 et les 2 premiers H2 pour reprendre clairement "%s", puis ajoute un bloc de contenu qui repond mieux a cette requete.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('la requete cible', 'wp-rank-tracker')),
+                    __('Impact attendu : faire progresser une page deja visible vers une meilleure zone de clics.', 'wp-rank-tracker'),
+                    'high'
+                );
+            }
+
+            if ($impressions >= 50 && $ctr > 0 && $ctr < 0.03) {
+                $opportunities[] = $this->make_opportunity(
+                    __('Page vue par Google mais peu cliquée', 'wp-rank-tracker'),
+                    $title !== '' ? $title : __('Page sans titre clair', 'wp-rank-tracker'),
+                    sprintf(__('La page genere des impressions sur "%s", mais le CTR reste faible. Cela suggere souvent un titre ou une promesse peu convaincante dans Google.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('cette requete', 'wp-rank-tracker')),
+                    __('Dans WordPress, reformule le titre de la page et si tu as un plugin SEO, retravaille aussi la balise title SEO pour donner une promesse plus concrete, plus precise et plus orientee benefice.', 'wp-rank-tracker'),
+                    __('Impact attendu : gagner plus de clics sans attendre une hausse de position.', 'wp-rank-tracker'),
+                    'high'
+                );
+            }
+        }
+
+        foreach ($comparisonRows as $row) {
+            if ((string) ($row['match_status'] ?? '') !== 'weak') {
+                continue;
+            }
+
+            $opportunities[] = $this->make_opportunity(
+                __('La page n attire pas la requete que son contenu laisse penser', 'wp-rank-tracker'),
+                (string) ($row['title'] ?? __('Page sans titre', 'wp-rank-tracker')),
+                sprintf(__('En local, la page semble cibler "%s", mais Google la relie surtout a "%s".', 'wp-rank-tracker'), (string) ($row['local_keyword'] ?? ''), (string) ($row['google_query'] ?? '')),
+                sprintf(__('Choisis une direction claire : soit tu assumes la requete vue par Google et tu renforces tout le contenu autour de "%s", soit tu crees une page dediee a cette requete pour eviter de melanger deux intentions.', 'wp-rank-tracker'), (string) ($row['google_query'] ?? __('la requete observee', 'wp-rank-tracker'))),
+                __('Impact attendu : eviter les pages floues et aligner le contenu avec la bonne intention de recherche.', 'wp-rank-tracker'),
+                'high'
+            );
+        }
+
+        $trackedKeywords = is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : [];
+        foreach ($trackedKeywords as $keyword) {
+            $keyword = (string) $keyword;
+            if ($keyword === '') {
+                continue;
+            }
+
+            $localMatch = $this->find_best_local_page_for_keyword($keyword, $localPages);
+            $googleMatch = $this->find_best_google_row_for_keyword($keyword, $this->get_report()['rows']);
+
+            if ($localMatch !== null && $googleMatch === null) {
+                $opportunities[] = $this->make_opportunity(
+                    __('Mot-cle important encore invisible dans Google', 'wp-rank-tracker'),
+                    (string) ($localMatch['title'] ?? __('Page locale', 'wp-rank-tracker')),
+                    sprintf(__('Tu suis "%s", et une page locale semble deja la cibler, mais Search Console ne montre pas encore de signal dessus.', 'wp-rank-tracker'), $keyword),
+                    sprintf(__('Dans WordPress, renforce cette page autour de "%s" avec un H1 plus net, des H2 plus explicites, un contenu plus concret et quelques liens internes depuis d autres pages du site.', 'wp-rank-tracker'), $keyword),
+                    __('Impact attendu : aider Google a comprendre plus vite quelle page doit remonter sur ce sujet.', 'wp-rank-tracker'),
+                    'medium'
+                );
+            }
+
+            $googleRowsForKeyword = array_values(array_filter(
+                $serpReport['rows'] ?? [],
+                static fn(array $row): bool => (string) ($row['engine'] ?? '') === 'google' && (string) ($row['keyword'] ?? '') === $keyword
+            ));
+            $targetRank = $this->find_domain_rank($targetDomain, $googleRowsForKeyword);
+            $bestCompetitorRank = $this->extract_best_competitor_rank($this->build_competitor_rank_rows($competitors, $googleRowsForKeyword, []));
+
+            if ($bestCompetitorRank > 0 && ($targetRank === 0 || $bestCompetitorRank < $targetRank)) {
+                $opportunities[] = $this->make_opportunity(
+                    __('Un concurrent te passe devant sur un mot-cle suivi', 'wp-rank-tracker'),
+                    $localMatch !== null ? (string) ($localMatch['title'] ?? __('Page a renforcer', 'wp-rank-tracker')) : __('Mot-cle sans page cible claire', 'wp-rank-tracker'),
+                    sprintf(__('Sur Google, un concurrent suivi apparait mieux place que ton domaine sur "%s".', 'wp-rank-tracker'), $keyword),
+                    sprintf(__('Ouvre la page de ton site qui doit travailler "%s", puis compare-la aux 3 premiers resultats : clarifie la promesse des titres, ajoute une preuve concrete, reponds aux questions pratiques et rends la page plus complete.', 'wp-rank-tracker'), $keyword),
+                    __('Impact attendu : reduire l ecart avec les concurrents les mieux positionnes.', 'wp-rank-tracker'),
+                    'high'
+                );
+            }
+        }
+
+        usort(
+            $opportunities,
+            function (array $left, array $right): int {
+                $priorityOrder = ['high' => 0, 'medium' => 1, 'low' => 2];
+                $leftPriority = $priorityOrder[$left['priority']] ?? 1;
+                $rightPriority = $priorityOrder[$right['priority']] ?? 1;
+                if ($leftPriority !== $rightPriority) {
+                    return $leftPriority <=> $rightPriority;
+                }
+
+                return strcmp((string) $left['page'], (string) $right['page']);
+            }
+        );
+
+        return array_slice($opportunities, 0, 6);
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param array<int, array<string, mixed>> $localPages
      * @param array<int, array<string, mixed>> $googleRows
      * @return array<int, array<string, string>>
      */
@@ -1759,6 +1911,27 @@ final class WP_Rank_Tracker_Admin {
             'priority_label' => $priorityLabels[$priority] ?? $priorityLabels['medium'],
             'area' => $area,
             'area_label' => $areaLabels[$area] ?? $areaLabels['overview'],
+        ];
+    }
+
+    /**
+     * @return array{title:string,page:string,why:string,action:string,impact:string,priority:string,priority_label:string}
+     */
+    private function make_opportunity(string $title, string $page, string $why, string $action, string $impact, string $priority): array {
+        $priorityLabels = [
+            'high' => __('A faire en premier', 'wp-rank-tracker'),
+            'medium' => __('A faire ensuite', 'wp-rank-tracker'),
+            'low' => __('A surveiller', 'wp-rank-tracker'),
+        ];
+
+        return [
+            'title' => $title,
+            'page' => $page,
+            'why' => $why,
+            'action' => $action,
+            'impact' => $impact,
+            'priority' => $priority,
+            'priority_label' => $priorityLabels[$priority] ?? $priorityLabels['medium'],
         ];
     }
 

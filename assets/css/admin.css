@@ -299,6 +299,46 @@
     color: #475569;
 }
 
+.wrt-opportunities {
+    display: grid;
+    gap: 16px;
+}
+
+.wrt-opportunity {
+    padding: 16px 18px;
+    border: 1px solid #d0d7de;
+    border-radius: 14px;
+    background: #f8fafc;
+}
+
+.wrt-opportunity-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.wrt-opportunity-page,
+.wrt-opportunity-why,
+.wrt-opportunity-action,
+.wrt-opportunity-impact {
+    margin: 8px 0 0;
+}
+
+.wrt-opportunity-page {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.wrt-opportunity-why,
+.wrt-opportunity-impact {
+    color: #475569;
+}
+
+.wrt-opportunity-action {
+    color: #0f172a;
+}
+
 @media (max-width: 960px) {
     .wrt-hero,
     .wrt-workspace {
