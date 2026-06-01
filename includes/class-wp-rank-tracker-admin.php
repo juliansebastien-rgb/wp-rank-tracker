@@ -10,6 +10,7 @@ final class WP_Rank_Tracker_Admin {
     private const REPORT_HISTORY_OPTION_KEY = 'wp_rank_tracker_gsc_report_history';
     private const SERP_REPORT_OPTION_KEY = 'wp_rank_tracker_serp_report';
     private const SERP_HISTORY_OPTION_KEY = 'wp_rank_tracker_serp_history';
+    private const SERP_REQUEST_DEBUG_OPTION_KEY = 'wp_rank_tracker_serp_request_debug';
     private const MENU_SLUG = 'wp-rank-tracker';
     private const MENU_SLUG_LOCAL = 'wp-rank-tracker-local';
     private const MENU_SLUG_GOOGLE = 'wp-rank-tracker-google-search-console';
@@ -262,6 +263,7 @@ final class WP_Rank_Tracker_Admin {
         $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport, $serpPreviousReport);
         $centralStatus = $this->get_central_google_status($settings);
         $centralSerpStatus = $this->get_central_serp_status($settings);
+        $serpRequestDebug = $this->get_serp_request_debug();
         $isConnected = $centralStatus['connected'];
         $isCentralRegistered = !empty($settings['central_site_token']);
         $googleProperties = $this->get_google_properties($settings, $isConnected);
@@ -915,6 +917,21 @@ final class WP_Rank_Tracker_Admin {
                         </p>
                     </div>
                 <?php endif; ?>
+                <?php if (!empty($serpRequestDebug['attempted_at'])) : ?>
+                    <div class="notice notice-info inline">
+                        <p>
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    __('WordPress a tente d envoyer le %1$s : %2$s', 'wp-rank-tracker'),
+                                    (string) $serpRequestDebug['attempted_at'],
+                                    !empty($serpRequestDebug['keywords']) ? implode(', ', array_map('strval', (array) $serpRequestDebug['keywords'])) : __('aucun mot-cle', 'wp-rank-tracker')
+                                )
+                            );
+                            ?>
+                        </p>
+                    </div>
+                <?php endif; ?>
                 <div class="wrt-local-stats">
                     <div><strong><?php echo esc_html((string) count($settings['tracked_keywords'])); ?></strong><span><?php esc_html_e('mots-cles suivis', 'wp-rank-tracker'); ?></span></div>
                     <div><strong><?php echo esc_html((string) count($settings['competitors'])); ?></strong><span><?php esc_html_e('concurrents compares', 'wp-rank-tracker'); ?></span></div>
@@ -1428,6 +1445,7 @@ final class WP_Rank_Tracker_Admin {
      * @return array<string, mixed>|\WP_Error
      */
     private function run_serp_import(array $settings) {
+        $this->store_serp_request_debug($settings);
         $centralService = new WP_Rank_Tracker_Central_Service($settings);
 
         if ($centralService->is_configured()) {
@@ -2206,6 +2224,50 @@ final class WP_Rank_Tracker_Admin {
 
         $previous = $history[0] ?? [];
         return $this->sanitize_serp_report(is_array($previous) ? $previous : []);
+    }
+
+    /**
+     * @return array{attempted_at:string,keywords:array<int,string>,location_name:string,language_name:string,target_domain:string}
+     */
+    private function get_serp_request_debug(): array {
+        $payload = get_option(self::SERP_REQUEST_DEBUG_OPTION_KEY, []);
+        if (!is_array($payload)) {
+            return [
+                'attempted_at' => '',
+                'keywords' => [],
+                'location_name' => '',
+                'language_name' => '',
+                'target_domain' => '',
+            ];
+        }
+
+        return [
+            'attempted_at' => sanitize_text_field((string) ($payload['attempted_at'] ?? '')),
+            'keywords' => array_values(array_filter(array_map(
+                static fn($keyword): string => sanitize_text_field((string) $keyword),
+                is_array($payload['keywords'] ?? null) ? $payload['keywords'] : []
+            ))),
+            'location_name' => sanitize_text_field((string) ($payload['location_name'] ?? '')),
+            'language_name' => sanitize_text_field((string) ($payload['language_name'] ?? '')),
+            'target_domain' => sanitize_text_field((string) ($payload['target_domain'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     */
+    private function store_serp_request_debug(array $settings): void {
+        update_option(
+            self::SERP_REQUEST_DEBUG_OPTION_KEY,
+            [
+                'attempted_at' => current_time('mysql'),
+                'keywords' => is_array($settings['tracked_keywords'] ?? null) ? array_values($settings['tracked_keywords']) : [],
+                'location_name' => (string) ($settings['dataforseo_location_name'] ?? ''),
+                'language_name' => (string) ($settings['dataforseo_language_name'] ?? ''),
+                'target_domain' => (string) ($settings['target_domain'] ?? ''),
+            ],
+            false
+        );
     }
 
     /**

@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.23
+Stable tag: 0.1.24
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,10 @@ Le site peut s'enregistrer automatiquement sur le service central sans demander 
 
 == Changelog ==
 
+= 0.1.24 =
+* Ajout d un traceur "WordPress a tente d envoyer" dans DataForSEO
+* Affiche la liste exacte des mots-cles que le plugin a essaye d envoyer au service central
+* Facilite le diagnostic entre sauvegarde locale, envoi WordPress et reception serveur
 = 0.1.23 =
 * Rend la detection des nouvelles releases GitHub plus reactive dans WordPress
 * Reduit le cache de mise a jour de 1 heure a 5 minutes
