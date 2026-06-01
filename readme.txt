@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.26
+Stable tag: 0.1.27
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,12 @@ Le site peut s'enregistrer automatiquement sur le service central sans demander 
 
 == Changelog ==
 
+= 0.1.27 =
+* Ajout de 4 blocs Google Search Console actionnables
+* Pages proches du top 10
+* Pages avec CTR faible
+* Pages en baisse
+* Requetes emergentes
 = 0.1.26 =
 * Les imports DataForSEO partent maintenant mot-cle par mot-cle
 * Evite les pertes de resultats quand plusieurs mots-cles sont envoyes en lot

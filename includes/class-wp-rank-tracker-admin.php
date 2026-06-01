@@ -258,6 +258,10 @@ final class WP_Rank_Tracker_Admin {
         $comparisonRows = $this->build_comparison_rows($localAudit['pages'], $pageRows);
         $googleTrendRows = $this->build_google_trend_rows($pageRows, $previousPageRows);
         $googleQueryPodium = $this->build_google_query_podium($report['rows']);
+        $pagesNearTopTen = $this->build_pages_near_top_ten_rows($pageRows);
+        $lowCtrPages = $this->build_low_ctr_rows($pageRows);
+        $decliningPages = $this->build_declining_pages_rows($googleTrendRows);
+        $emergingQueries = $this->build_emerging_queries_rows($report['rows'], $previousReport['rows']);
         $priorityOpportunities = $this->build_priority_opportunities($settings, $localAudit['pages'], $pageRows, $comparisonRows, $serpReport);
         $marketRows = $this->build_market_watch_rows($settings, $localAudit['pages'], $report['rows']);
         $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport, $serpPreviousReport);
@@ -643,6 +647,124 @@ final class WP_Rank_Tracker_Admin {
                                     <td><?php echo esc_html($podiumRow['page']); ?></td>
                                     <td><?php echo esc_html((string) $podiumRow['clicks']); ?></td>
                                     <td><?php echo esc_html($this->format_position((float) $podiumRow['position'])); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Pages proches du top 10', 'wp-rank-tracker'); ?></h2>
+                <?php if ($pagesNearTopTen === []) : ?>
+                    <p><?php esc_html_e('Aucune page n est actuellement dans cette zone de progression rapide.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Requete principale', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Action conseillee', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($pagesNearTopTen as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['page']); ?></strong></td>
+                                    <td><?php echo esc_html($row['top_query']); ?></td>
+                                    <td><?php echo esc_html((string) $row['impressions']); ?></td>
+                                    <td><?php echo esc_html($this->format_position((float) $row['position'])); ?></td>
+                                    <td><?php echo esc_html($row['action']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Pages avec CTR faible', 'wp-rank-tracker'); ?></h2>
+                <?php if ($lowCtrPages === []) : ?>
+                    <p><?php esc_html_e('Aucune page prioritaire avec CTR faible pour le moment.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Requete principale', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
+                                <th>CTR</th>
+                                <th><?php esc_html_e('Action conseillee', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($lowCtrPages as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['page']); ?></strong></td>
+                                    <td><?php echo esc_html($row['top_query']); ?></td>
+                                    <td><?php echo esc_html((string) $row['impressions']); ?></td>
+                                    <td><?php echo esc_html($this->format_ctr((float) $row['ctr'])); ?></td>
+                                    <td><?php echo esc_html($row['action']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Pages en baisse', 'wp-rank-tracker'); ?></h2>
+                <?php if ($decliningPages === []) : ?>
+                    <p><?php esc_html_e('Aucune baisse recente marquee n a ete detectee.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Tendance', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Requete principale', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Action conseillee', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($decliningPages as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['page']); ?></strong></td>
+                                    <td><?php echo wp_kses_post($row['trend']); ?></td>
+                                    <td><?php echo esc_html($row['top_query']); ?></td>
+                                    <td><?php echo esc_html($row['action']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </section>
+
+            <section class="wrt-card wrt-table-card">
+                <h2><?php esc_html_e('Requetes emergentes', 'wp-rank-tracker'); ?></h2>
+                <?php if ($emergingQueries === []) : ?>
+                    <p><?php esc_html_e('Aucune requete emergente evidente pour le moment.', 'wp-rank-tracker'); ?></p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Requete', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Impressions', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Position moy.', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Action conseillee', 'wp-rank-tracker'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($emergingQueries as $row) : ?>
+                                <tr>
+                                    <td><strong><?php echo esc_html($row['query']); ?></strong></td>
+                                    <td><?php echo esc_html($row['page']); ?></td>
+                                    <td><?php echo esc_html((string) $row['impressions']); ?></td>
+                                    <td><?php echo esc_html($this->format_position((float) $row['position'])); ?></td>
+                                    <td><?php echo esc_html($row['action']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -1693,6 +1815,133 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return $podium;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $pageRows
+     * @return array<int, array<string, mixed>>
+     */
+    private function build_pages_near_top_ten_rows(array $pageRows): array {
+        $rows = array_values(array_filter(
+            $pageRows,
+            static fn(array $row): bool => (float) ($row['position'] ?? 0) >= 8.0
+                && (float) ($row['position'] ?? 0) <= 20.0
+                && (int) ($row['impressions'] ?? 0) >= 10
+        ));
+
+        usort(
+            $rows,
+            static function (array $left, array $right): int {
+                $leftPos = (float) ($left['position'] ?? 0);
+                $rightPos = (float) ($right['position'] ?? 0);
+                if ($leftPos !== $rightPos) {
+                    return $leftPos <=> $rightPos;
+                }
+
+                return ((int) ($right['impressions'] ?? 0)) <=> ((int) ($left['impressions'] ?? 0));
+            }
+        );
+
+        $rows = array_slice($rows, 0, 5);
+        foreach ($rows as &$row) {
+            $row['action'] = __('Renforcer le title, le H1 et le debut du contenu pour pousser cette page dans une zone de clic plus forte.', 'wp-rank-tracker');
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $pageRows
+     * @return array<int, array<string, mixed>>
+     */
+    private function build_low_ctr_rows(array $pageRows): array {
+        $rows = array_values(array_filter(
+            $pageRows,
+            static fn(array $row): bool => (int) ($row['impressions'] ?? 0) >= 20
+                && (float) ($row['ctr'] ?? 0) > 0
+                && (float) ($row['ctr'] ?? 0) < 0.03
+        ));
+
+        usort(
+            $rows,
+            static fn(array $left, array $right): int => ((int) ($right['impressions'] ?? 0)) <=> ((int) ($left['impressions'] ?? 0))
+        );
+
+        $rows = array_slice($rows, 0, 5);
+        foreach ($rows as &$row) {
+            $row['action'] = __('Retravailler le title SEO et la promesse de la page pour donner plus envie de cliquer dans Google.', 'wp-rank-tracker');
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $googleTrendRows
+     * @return array<int, array<string, mixed>>
+     */
+    private function build_declining_pages_rows(array $googleTrendRows): array {
+        $rows = array_values(array_filter(
+            $googleTrendRows,
+            static fn(array $row): bool => str_contains((string) ($row['trend'] ?? ''), 'wrt-delta-down')
+        ));
+
+        $rows = array_slice($rows, 0, 5);
+        foreach ($rows as &$row) {
+            $row['action'] = __('Verifier les changements recents sur la page, le title, le contenu et les concurrents qui ont pu passer devant.', 'wp-rank-tracker');
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $currentRows
+     * @param array<int, array<string, mixed>> $previousRows
+     * @return array<int, array<string, mixed>>
+     */
+    private function build_emerging_queries_rows(array $currentRows, array $previousRows): array {
+        if ($currentRows === []) {
+            return [];
+        }
+
+        $previousKeys = [];
+        foreach ($previousRows as $row) {
+            $key = (string) ($row['page'] ?? '') . '|' . (string) ($row['query'] ?? '');
+            if ($key !== '|') {
+                $previousKeys[$key] = true;
+            }
+        }
+
+        $rows = [];
+        foreach ($currentRows as $row) {
+            $key = (string) ($row['page'] ?? '') . '|' . (string) ($row['query'] ?? '');
+            if (isset($previousKeys[$key])) {
+                continue;
+            }
+
+            if ((int) ($row['impressions'] ?? 0) < 5) {
+                continue;
+            }
+
+            $row['action'] = __('Verifier si cette requete merite d etre assumee dans le contenu, les H2 ou une page dediee.', 'wp-rank-tracker');
+            $rows[] = $row;
+        }
+
+        usort(
+            $rows,
+            static function (array $left, array $right): int {
+                $impressionCompare = ((int) ($right['impressions'] ?? 0)) <=> ((int) ($left['impressions'] ?? 0));
+                if ($impressionCompare !== 0) {
+                    return $impressionCompare;
+                }
+
+                return ((float) ($left['position'] ?? 0)) <=> ((float) ($right['position'] ?? 0));
+            }
+        );
+
+        return array_slice($rows, 0, 5);
     }
 
     /**
