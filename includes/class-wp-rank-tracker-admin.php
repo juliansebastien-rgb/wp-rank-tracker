@@ -965,7 +965,7 @@ final class WP_Rank_Tracker_Admin {
                             <tr>
                                 <th><?php esc_html_e('Mot-cle surveille', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Page locale probable', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Signal Google actuel', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Ce que Google voit deja', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Concurrents a comparer', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Lecture strategique', 'wp-rank-tracker'); ?></th>
                             </tr>
