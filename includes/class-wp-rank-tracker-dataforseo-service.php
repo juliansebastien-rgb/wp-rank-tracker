@@ -41,65 +41,63 @@ final class WP_Rank_Tracker_DataForSEO_Service {
 
         foreach ($engines as $engine) {
             $endpoint = sprintf('%s/v3/serp/%s/organic/live/advanced', self::BASE_URL, $engine);
-            $tasks = [];
-
             foreach ($keywords as $keyword) {
-                $tasks[] = [
-                    'keyword' => $keyword,
-                    'location_name' => (string) ($this->settings['dataforseo_location_name'] ?? 'United States'),
-                    'language_name' => (string) ($this->settings['dataforseo_language_name'] ?? 'English'),
-                    'depth' => max(20, (int) ($this->settings['dataforseo_depth'] ?? 20)),
-                ];
-            }
+                $response = wp_remote_post(
+                    $endpoint,
+                    [
+                        'timeout' => 45,
+                        'headers' => [
+                            'Authorization' => 'Basic ' . base64_encode($login . ':' . $password),
+                            'Content-Type' => 'application/json',
+                        ],
+                        'body' => wp_json_encode([
+                            [
+                                'keyword' => $keyword,
+                                'location_name' => (string) ($this->settings['dataforseo_location_name'] ?? 'United States'),
+                                'language_name' => (string) ($this->settings['dataforseo_language_name'] ?? 'English'),
+                                'depth' => max(20, (int) ($this->settings['dataforseo_depth'] ?? 20)),
+                            ],
+                        ]),
+                    ]
+                );
 
-            $response = wp_remote_post(
-                $endpoint,
-                [
-                    'timeout' => 45,
-                    'headers' => [
-                        'Authorization' => 'Basic ' . base64_encode($login . ':' . $password),
-                        'Content-Type' => 'application/json',
-                    ],
-                    'body' => wp_json_encode($tasks),
-                ]
-            );
-
-            if (is_wp_error($response)) {
-                return new WP_Error('wrt_dataforseo_request_failed', $response->get_error_message());
-            }
-
-            $status = (int) wp_remote_retrieve_response_code($response);
-            $body = (string) wp_remote_retrieve_body($response);
-            $decoded = json_decode($body, true);
-
-            if ($status >= 400 || !is_array($decoded)) {
-                return new WP_Error('wrt_dataforseo_http_error', __('Reponse DataForSEO invalide.', 'wp-rank-tracker'));
-            }
-
-            foreach (($decoded['tasks'] ?? []) as $task) {
-                if (!is_array($task)) {
-                    continue;
+                if (is_wp_error($response)) {
+                    return new WP_Error('wrt_dataforseo_request_failed', $response->get_error_message());
                 }
 
-                $keyword = sanitize_text_field((string) ($task['data']['keyword'] ?? ''));
-                foreach (($task['result'] ?? []) as $result) {
-                    if (!is_array($result)) {
+                $status = (int) wp_remote_retrieve_response_code($response);
+                $body = (string) wp_remote_retrieve_body($response);
+                $decoded = json_decode($body, true);
+
+                if ($status >= 400 || !is_array($decoded)) {
+                    return new WP_Error('wrt_dataforseo_http_error', __('Reponse DataForSEO invalide.', 'wp-rank-tracker'));
+                }
+
+                foreach (($decoded['tasks'] ?? []) as $task) {
+                    if (!is_array($task)) {
                         continue;
                     }
 
-                    foreach (($result['items'] ?? []) as $item) {
-                        if (!is_array($item)) {
+                    $taskKeyword = sanitize_text_field((string) ($task['data']['keyword'] ?? $keyword));
+                    foreach (($task['result'] ?? []) as $result) {
+                        if (!is_array($result)) {
                             continue;
                         }
 
-                        $rows[] = [
-                            'engine' => $engine,
-                            'keyword' => $keyword,
-                            'rank' => isset($item['rank_absolute']) ? (int) $item['rank_absolute'] : 0,
-                            'domain' => $this->normalize_domain((string) ($item['domain'] ?? '')),
-                            'url' => esc_url_raw((string) ($item['url'] ?? '')),
-                            'title' => sanitize_text_field((string) ($item['title'] ?? '')),
-                        ];
+                        foreach (($result['items'] ?? []) as $item) {
+                            if (!is_array($item)) {
+                                continue;
+                            }
+
+                            $rows[] = [
+                                'engine' => $engine,
+                                'keyword' => $taskKeyword,
+                                'rank' => isset($item['rank_absolute']) ? (int) $item['rank_absolute'] : 0,
+                                'domain' => $this->normalize_domain((string) ($item['domain'] ?? '')),
+                                'url' => esc_url_raw((string) ($item['url'] ?? '')),
+                                'title' => sanitize_text_field((string) ($item['title'] ?? '')),
+                            ];
+                        }
                     }
                 }
             }

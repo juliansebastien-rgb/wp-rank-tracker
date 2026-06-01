@@ -2323,6 +2323,7 @@ final class WP_Rank_Tracker_Admin {
         }
 
         $rows = [];
+        $importedKeywords = is_array($serpReport['keywords'] ?? null) ? array_map('strval', $serpReport['keywords']) : [];
         foreach ($keywords as $keyword) {
             foreach (['google', 'bing'] as $engine) {
                 $snapshotRows = array_values(array_filter(
@@ -2334,7 +2335,7 @@ final class WP_Rank_Tracker_Admin {
                     static fn(array $row): bool => (string) $row['keyword'] === (string) $keyword && (string) $row['engine'] === $engine
                 ));
 
-                if ($snapshotRows === []) {
+                if ($snapshotRows === [] && !in_array((string) $keyword, $importedKeywords, true)) {
                     $rows[] = [
                         'keyword' => (string) $keyword,
                         'engine' => ucfirst($engine),

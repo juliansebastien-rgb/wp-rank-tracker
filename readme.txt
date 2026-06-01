@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.25
+Stable tag: 0.1.26
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,10 @@ Le site peut s'enregistrer automatiquement sur le service central sans demander 
 
 == Changelog ==
 
+= 0.1.26 =
+* Les imports DataForSEO partent maintenant mot-cle par mot-cle
+* Evite les pertes de resultats quand plusieurs mots-cles sont envoyes en lot
+* Le tableau ne confond plus un mot-cle demande sans resultat avec un mot-cle absent du dernier import
 = 0.1.25 =
 * La phase SERP analyse maintenant au minimum le top 20 au lieu du top 10
 * Un mot-cle absent du top 20 est affiche comme "Non detecte dans le top 20"
