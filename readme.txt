@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.24
+Stable tag: 0.1.25
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,10 @@ Le site peut s'enregistrer automatiquement sur le service central sans demander 
 
 == Changelog ==
 
+= 0.1.25 =
+* La phase SERP analyse maintenant au minimum le top 20 au lieu du top 10
+* Un mot-cle absent du top 20 est affiche comme "Non detecte dans le top 20"
+* Evite de masquer des positions plus basses comme #15 sur DataForSEO
 = 0.1.24 =
 * Ajout d un traceur "WordPress a tente d envoyer" dans DataForSEO
 * Affiche la liste exacte des mots-cles que le plugin a essaye d envoyer au service central

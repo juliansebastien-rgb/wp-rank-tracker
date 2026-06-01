@@ -142,7 +142,7 @@ final class WP_Rank_Tracker_Admin {
             'dataforseo_password' => $postedDataForSeoPassword !== '' ? $postedDataForSeoPassword : (string) ($current['dataforseo_password'] ?? ''),
             'dataforseo_location_name' => sanitize_text_field(wp_unslash((string) ($_POST['dataforseo_location_name'] ?? 'United States'))),
             'dataforseo_language_name' => sanitize_text_field(wp_unslash((string) ($_POST['dataforseo_language_name'] ?? 'English'))),
-            'dataforseo_depth' => $this->sanitize_serp_depth($_POST['dataforseo_depth'] ?? 10),
+            'dataforseo_depth' => $this->sanitize_serp_depth($_POST['dataforseo_depth'] ?? 20),
         ];
 
         update_option(self::OPTION_KEY, $settings, false);
@@ -1128,7 +1128,7 @@ final class WP_Rank_Tracker_Admin {
             'dataforseo_password' => '',
             'dataforseo_location_name' => 'United States',
             'dataforseo_language_name' => 'English',
-            'dataforseo_depth' => 10,
+            'dataforseo_depth' => 20,
         ];
     }
 
@@ -1256,8 +1256,8 @@ final class WP_Rank_Tracker_Admin {
 
     private function sanitize_serp_depth($value): int {
         $depth = absint($value);
-        if ($depth < 10) {
-            return 10;
+        if ($depth < 20) {
+            return 20;
         }
 
         return min($depth, 100);
@@ -1455,7 +1455,7 @@ final class WP_Rank_Tracker_Admin {
                 is_array($settings['competitors']) ? $settings['competitors'] : [],
                 (string) $settings['dataforseo_location_name'],
                 (string) $settings['dataforseo_language_name'],
-                (int) $settings['dataforseo_depth']
+                max(20, (int) $settings['dataforseo_depth'])
             );
             if (is_wp_error($response)) {
                 return $response;
@@ -3142,7 +3142,7 @@ final class WP_Rank_Tracker_Admin {
     }
 
     private function format_rank_with_delta(string $domainLabel, int $currentRank, int $previousRank): string {
-        $rankLabel = $currentRank > 0 ? '#' . $currentRank : __('Non detecte', 'wp-rank-tracker');
+        $rankLabel = $currentRank > 0 ? '#' . $currentRank : sprintf(__('Non detecte dans le top %d', 'wp-rank-tracker'), max(20, (int) ($this->get_settings()['dataforseo_depth'] ?? 20)));
         $delta = $this->build_rank_delta_badge($currentRank, $previousRank);
 
         return sprintf(

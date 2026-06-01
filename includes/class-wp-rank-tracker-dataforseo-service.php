@@ -48,7 +48,7 @@ final class WP_Rank_Tracker_DataForSEO_Service {
                     'keyword' => $keyword,
                     'location_name' => (string) ($this->settings['dataforseo_location_name'] ?? 'United States'),
                     'language_name' => (string) ($this->settings['dataforseo_language_name'] ?? 'English'),
-                    'depth' => (int) ($this->settings['dataforseo_depth'] ?? 10),
+                    'depth' => max(20, (int) ($this->settings['dataforseo_depth'] ?? 20)),
                 ];
             }
 
