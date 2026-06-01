@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.19
+Stable tag: 0.1.20
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,11 @@ Le site peut s'enregistrer automatiquement sur le service central sans demander 
 
 == Changelog ==
 
+= 0.1.20 =
+* Clarifie le parcours DataForSEO avec un bouton "Enregistrer et analyser maintenant"
+* Affiche les mots-cles exacts utilises lors du dernier import SERP
+* Alerte si les mots-cles affiches ne correspondent pas encore au dernier import relance
+* Evite la confusion entre sauvegarde de la configuration et simple rafraichissement
 = 0.1.19 =
 * Ajout d un bloc A faire maintenant dans le Tableau de bord
 * Ajout d un Resume du jour avec les hausses, baisses et opportunites fortes

@@ -107,6 +107,7 @@ final class WP_Rank_Tracker_DataForSEO_Service {
 
         return [
             'fetched_at' => current_time('mysql'),
+            'keywords' => $keywords,
             'location_name' => (string) ($this->settings['dataforseo_location_name'] ?? 'United States'),
             'language_name' => (string) ($this->settings['dataforseo_language_name'] ?? 'English'),
             'rows' => $rows,

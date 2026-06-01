@@ -819,7 +819,7 @@ final class WP_Rank_Tracker_Admin {
                             </tr>
                         </tbody>
                     </table>
-                    <?php submit_button(__('Enregistrer la configuration', 'wp-rank-tracker')); ?>
+                    <?php submit_button(__('Enregistrer et analyser maintenant', 'wp-rank-tracker')); ?>
                 </form>
             </section>
 
@@ -876,6 +876,27 @@ final class WP_Rank_Tracker_Admin {
                         );
                         ?>
                     </p>
+                    <?php if (!empty($serpReport['keywords'])) : ?>
+                        <p class="description">
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    __('Mots-cles du dernier import : %s', 'wp-rank-tracker'),
+                                    implode(', ', array_map('strval', (array) $serpReport['keywords']))
+                                )
+                            );
+                            ?>
+                        </p>
+                    <?php endif; ?>
+                    <?php
+                    $currentTrackedKeywords = is_array($settings['tracked_keywords']) ? array_values($settings['tracked_keywords']) : [];
+                    $lastImportedKeywords = is_array($serpReport['keywords'] ?? null) ? array_values($serpReport['keywords']) : [];
+                    if ($currentTrackedKeywords !== [] && $lastImportedKeywords !== [] && $currentTrackedKeywords !== $lastImportedKeywords) :
+                    ?>
+                        <div class="notice notice-warning inline">
+                            <p><?php esc_html_e('Les mots-cles affiches ci-dessous ne correspondent pas encore aux mots-cles actuellement saisis dans la configuration. Clique sur "Enregistrer et analyser maintenant" pour relancer l import avec les nouvelles valeurs.', 'wp-rank-tracker'); ?></p>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <div class="wrt-local-stats">
                     <div><strong><?php echo esc_html((string) count($settings['tracked_keywords'])); ?></strong><span><?php esc_html_e('mots-cles suivis', 'wp-rank-tracker'); ?></span></div>
@@ -885,8 +906,9 @@ final class WP_Rank_Tracker_Admin {
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_import_serp" />
                     <?php wp_nonce_field(self::NONCE_ACTION_IMPORT_SERP); ?>
-                    <?php submit_button(__('Rafraichir maintenant', 'wp-rank-tracker'), 'secondary'); ?>
+                    <?php submit_button(__('Rafraichir maintenant avec les mots-cles deja enregistres', 'wp-rank-tracker'), 'secondary'); ?>
                 </form>
+                <p class="description"><?php esc_html_e('Si tu viens de modifier la liste au-dessus, utilise d abord "Enregistrer et analyser maintenant". Le bouton de rafraichissement relance seulement le dernier jeu de mots-cles enregistre.', 'wp-rank-tracker'); ?></p>
                 <?php if ($serpComparisonRows === []) : ?>
                     <p><?php esc_html_e('Aucune donnee SERP externe importee pour le moment.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
@@ -2158,6 +2180,10 @@ final class WP_Rank_Tracker_Admin {
 
         return [
             'fetched_at' => sanitize_text_field((string) ($report['fetched_at'] ?? '')),
+            'keywords' => array_values(array_filter(array_map(
+                static fn($keyword): string => sanitize_text_field((string) $keyword),
+                is_array($report['keywords'] ?? null) ? $report['keywords'] : []
+            ))),
             'location_name' => sanitize_text_field((string) ($report['location_name'] ?? '')),
             'language_name' => sanitize_text_field((string) ($report['language_name'] ?? '')),
             'rows' => $rows,
@@ -3119,6 +3145,7 @@ final class WP_Rank_Tracker_Admin {
     private function empty_serp_report(): array {
         return [
             'fetched_at' => '',
+            'keywords' => [],
             'location_name' => '',
             'language_name' => '',
             'rows' => [],
