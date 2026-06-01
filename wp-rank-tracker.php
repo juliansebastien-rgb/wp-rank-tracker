@@ -3,7 +3,7 @@
  * Plugin Name: WP Rank Tracker
  * Plugin URI: https://github.com/juliansebastien-rgb/wp-rank-tracker
  * Description: Suit les mots-cles SEO de votre site WordPress et prepare le suivi de position sur Google et d'autres moteurs.
- * Version: 0.1.22
+ * Version: 0.1.23
  * Author: Le Labo d'Azertaf
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WP_RANK_TRACKER_VERSION', '0.1.22');
+define('WP_RANK_TRACKER_VERSION', '0.1.23');
 define('WP_RANK_TRACKER_FILE', __FILE__);
 define('WP_RANK_TRACKER_DIR', plugin_dir_path(__FILE__));
 define('WP_RANK_TRACKER_URL', plugin_dir_url(__FILE__));
@@ -28,14 +28,14 @@ require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-central-servi
 require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-admin.php';
 
 final class WP_Rank_Tracker {
-    private const VERSION = '0.1.22';
+    private const VERSION = '0.1.23';
     private const DAILY_GOOGLE_EVENT = 'wp_rank_tracker_refresh_google_daily';
     private const DAILY_SERP_EVENT = 'wp_rank_tracker_refresh_serp_daily';
     private const TRANSIENT_PREFIX = 'wp_rank_tracker_';
     private const GITHUB_REPOSITORY = 'juliansebastien-rgb/wp-rank-tracker';
     private const GITHUB_API_BASE = 'https://api.github.com/repos/juliansebastien-rgb/wp-rank-tracker';
     private const GITHUB_REPOSITORY_URL = 'https://github.com/juliansebastien-rgb/wp-rank-tracker';
-    private const UPDATE_CACHE_TTL = HOUR_IN_SECONDS;
+    private const UPDATE_CACHE_TTL = 5 * MINUTE_IN_SECONDS;
     private static ?WP_Rank_Tracker $instance = null;
 
     public static function instance(): WP_Rank_Tracker {
@@ -50,6 +50,7 @@ final class WP_Rank_Tracker {
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
         add_action('plugins_loaded', [$this, 'boot']);
+        add_action('admin_init', [$this, 'maybe_refresh_update_transients']);
         add_filter('pre_set_site_transient_update_plugins', [$this, 'inject_github_update']);
         add_filter('plugins_api', [$this, 'filter_plugin_information'], 20, 3);
         add_filter('upgrader_source_selection', [$this, 'normalize_github_update_source'], 10, 4);
@@ -157,7 +158,31 @@ final class WP_Rank_Tracker {
         $plugins = $hook_extra['plugins'] ?? [];
         if (in_array(plugin_basename(__FILE__), $plugins, true)) {
             delete_transient(self::TRANSIENT_PREFIX . 'github_release');
+            delete_site_transient('update_plugins');
         }
+    }
+
+    public function maybe_refresh_update_transients(): void {
+        if (!is_admin() || !current_user_can('update_plugins')) {
+            return;
+        }
+
+        $screen = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
+        $isPluginsScreen = function_exists('get_current_screen') && ($current = get_current_screen()) && in_array($current->id ?? '', ['plugins', 'update-core'], true);
+        $isRankTrackerScreen = str_starts_with($screen, 'wp-rank-tracker');
+
+        if (!$isPluginsScreen && !$isRankTrackerScreen) {
+            return;
+        }
+
+        $lastRefreshKey = self::TRANSIENT_PREFIX . 'update_refresh_lock';
+        if (get_transient($lastRefreshKey)) {
+            return;
+        }
+
+        delete_transient(self::TRANSIENT_PREFIX . 'github_release');
+        delete_site_transient('update_plugins');
+        set_transient($lastRefreshKey, '1', MINUTE_IN_SECONDS);
     }
 
     public function normalize_github_update_source(string $source, string $remote_source, $upgrader, array $hook_extra): string {
