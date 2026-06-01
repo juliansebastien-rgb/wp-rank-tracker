@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.21
+Stable tag: 0.1.22
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,10 @@ Le site peut s'enregistrer automatiquement sur le service central sans demander 
 
 == Changelog ==
 
+= 0.1.22 =
+* Ajout d un bloc de diagnostic du serveur central dans DataForSEO
+* Affiche la date, le nombre de lignes et les mots-cles reels du dernier snapshot recu cote serveur
+* Permet de distinguer un probleme d import WordPress d un probleme DataForSEO
 = 0.1.21 =
 * Le tableau SERP distingue maintenant un vrai "Non detecte" d un mot-cle absent du dernier import
 * Affiche "Pas dans le dernier import" quand le snapshot affiche est obsolete pour un mot-cle configure

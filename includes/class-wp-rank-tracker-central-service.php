@@ -115,6 +115,15 @@ final class WP_Rank_Tracker_Central_Service {
     }
 
     /**
+     * @return array<string, mixed>|\WP_Error
+     */
+    public function get_serp_status() {
+        return $this->request('GET', '/wrt/v1/serp/status', [], [
+            'site_url' => home_url('/'),
+        ]);
+    }
+
+    /**
      * @param array<string, mixed> $body
      * @param array<string, string> $query
      * @return array<string, mixed>|\WP_Error

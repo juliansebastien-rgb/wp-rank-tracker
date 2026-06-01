@@ -261,6 +261,7 @@ final class WP_Rank_Tracker_Admin {
         $marketRows = $this->build_market_watch_rows($settings, $localAudit['pages'], $report['rows']);
         $serpComparisonRows = $this->build_serp_comparison_rows($settings, $serpReport, $serpPreviousReport);
         $centralStatus = $this->get_central_google_status($settings);
+        $centralSerpStatus = $this->get_central_serp_status($settings);
         $isConnected = $centralStatus['connected'];
         $isCentralRegistered = !empty($settings['central_site_token']);
         $googleProperties = $this->get_google_properties($settings, $isConnected);
@@ -898,6 +899,22 @@ final class WP_Rank_Tracker_Admin {
                         </div>
                     <?php endif; ?>
                 <?php endif; ?>
+                <?php if (!empty($centralSerpStatus['available'])) : ?>
+                    <div class="notice notice-info inline">
+                        <p>
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    __('Serveur central : dernier snapshot recu le %1$s, %2$d ligne(s), mots-cles recus : %3$s', 'wp-rank-tracker'),
+                                    (string) ($centralSerpStatus['fetched_at'] ?: __('jamais', 'wp-rank-tracker')),
+                                    (int) ($centralSerpStatus['rows_count'] ?? 0),
+                                    !empty($centralSerpStatus['keywords']) ? implode(', ', array_map('strval', (array) $centralSerpStatus['keywords'])) : __('aucun', 'wp-rank-tracker')
+                                )
+                            );
+                            ?>
+                        </p>
+                    </div>
+                <?php endif; ?>
                 <div class="wrt-local-stats">
                     <div><strong><?php echo esc_html((string) count($settings['tracked_keywords'])); ?></strong><span><?php esc_html_e('mots-cles suivis', 'wp-rank-tracker'); ?></span></div>
                     <div><strong><?php echo esc_html((string) count($settings['competitors'])); ?></strong><span><?php esc_html_e('concurrents compares', 'wp-rank-tracker'); ?></span></div>
@@ -1279,6 +1296,44 @@ final class WP_Rank_Tracker_Admin {
         return [
             'connected' => !empty($response['connected']),
             'property_uri' => sanitize_text_field((string) ($response['property_uri'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @return array{available:bool,fetched_at:string,keywords:array<int,string>,rows_count:int}
+     */
+    private function get_central_serp_status(array $settings): array {
+        $service = new WP_Rank_Tracker_Central_Service($settings);
+        if (empty($settings['central_site_token'])) {
+            return [
+                'available' => false,
+                'fetched_at' => '',
+                'keywords' => [],
+                'rows_count' => 0,
+            ];
+        }
+
+        $response = $service->get_serp_status();
+        if (is_wp_error($response)) {
+            return [
+                'available' => false,
+                'fetched_at' => '',
+                'keywords' => [],
+                'rows_count' => 0,
+            ];
+        }
+
+        $report = is_array($response['last_report'] ?? null) ? $response['last_report'] : [];
+
+        return [
+            'available' => true,
+            'fetched_at' => sanitize_text_field((string) ($report['fetched_at'] ?? '')),
+            'keywords' => array_values(array_filter(array_map(
+                static fn($keyword): string => sanitize_text_field((string) $keyword),
+                is_array($report['keywords'] ?? null) ? $report['keywords'] : []
+            ))),
+            'rows_count' => (int) ($report['rows_count'] ?? 0),
         ];
     }
 
