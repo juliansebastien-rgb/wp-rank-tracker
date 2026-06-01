@@ -2217,6 +2217,18 @@ final class WP_Rank_Tracker_Admin {
                     static fn(array $row): bool => (string) $row['keyword'] === (string) $keyword && (string) $row['engine'] === $engine
                 ));
 
+                if ($snapshotRows === []) {
+                    $rows[] = [
+                        'keyword' => (string) $keyword,
+                        'engine' => ucfirst($engine),
+                        'target_rank' => '<strong>' . esc_html($targetDomain !== '' ? $targetDomain : __('Ton domaine', 'wp-rank-tracker')) . '</strong><br /><span class="wrt-rank-line">' . esc_html__('Pas dans le dernier import', 'wp-rank-tracker') . '</span>',
+                        'competitors' => esc_html__('Aucune donnee pour ce mot-cle dans le dernier import', 'wp-rank-tracker'),
+                        'podium' => esc_html__('Import a relancer', 'wp-rank-tracker'),
+                        'note' => esc_html__('Ce mot-cle est bien dans ta liste actuelle, mais il n apparait pas dans le dernier snapshot SERP enregistre. Relance "Enregistrer et analyser maintenant".', 'wp-rank-tracker'),
+                    ];
+                    continue;
+                }
+
                 $targetRank = $this->find_domain_rank($targetDomain, $snapshotRows);
                 $previousTargetRank = $this->find_domain_rank($targetDomain, $previousRows);
                 $competitorRows = $this->build_competitor_rank_rows($competitors, $snapshotRows, $previousRows);
