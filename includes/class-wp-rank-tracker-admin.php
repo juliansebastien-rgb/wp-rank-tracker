@@ -2457,6 +2457,15 @@ final class WP_Rank_Tracker_Admin {
      * @return array<string, mixed>
      */
     private function get_serp_report(): array {
+        $settings = $this->get_settings();
+        $centralService = new WP_Rank_Tracker_Central_Service($settings);
+        if ($centralService->is_configured()) {
+            $response = $centralService->get_serp_report();
+            if (!is_wp_error($response) && is_array($response['report'] ?? null)) {
+                return $this->sanitize_serp_report($response['report']);
+            }
+        }
+
         $report = get_option(self::SERP_REPORT_OPTION_KEY, []);
 
         return $this->sanitize_serp_report(is_array($report) ? $report : []);

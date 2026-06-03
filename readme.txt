@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.28
+Stable tag: 0.1.29
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,10 @@ Le site peut s'enregistrer automatiquement sur le service central sans demander 
 
 == Changelog ==
 
+= 0.1.29 =
+* Le sous-menu DataForSEO lit maintenant le report complet du serveur central quand il est configure
+* Evite les incoherences entre snapshot backend a jour et cache local WordPress obsolete
+* Affiche la meme source de verite que le service central
 = 0.1.28 =
 * Renomme la colonne "Signal Google actuel" en "Ce que Google voit deja"
 * Clarifie la lecture du comparatif concurrentiel prepare
