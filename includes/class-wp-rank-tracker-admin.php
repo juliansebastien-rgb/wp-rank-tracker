@@ -3704,7 +3704,15 @@ final class WP_Rank_Tracker_Admin {
             parse_str((string) $parts['query'], $query);
         }
 
-        $query['page'] = self::MENU_SLUG;
+        $page = isset($query['page']) ? sanitize_key((string) $query['page']) : self::MENU_SLUG;
+        $allowedPages = [
+            self::MENU_SLUG,
+            self::MENU_SLUG_LOCAL,
+            self::MENU_SLUG_GOOGLE,
+            self::MENU_SLUG_DATAFORSEO,
+        ];
+
+        $query['page'] = in_array($page, $allowedPages, true) ? $page : self::MENU_SLUG;
         unset($query['wrt_notice'], $query['wrt_message'], $query['_wpnonce'], $query['_wp_http_referer']);
 
         $url = (isset($parts['scheme']) ? $parts['scheme'] . '://' : '') . (isset($parts['host']) ? $parts['host'] : '');
