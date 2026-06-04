@@ -1248,9 +1248,9 @@ final class WP_Rank_Tracker_Admin {
             'tracked_keywords' => [],
             'dataforseo_login' => '',
             'dataforseo_password' => '',
-            'dataforseo_location_name' => 'United States',
-            'dataforseo_language_name' => 'English',
-            'dataforseo_depth' => 20,
+            'dataforseo_location_name' => '',
+            'dataforseo_language_name' => '',
+            'dataforseo_depth' => 100,
         ];
     }
 
@@ -1378,11 +1378,42 @@ final class WP_Rank_Tracker_Admin {
 
     private function sanitize_serp_depth($value): int {
         $depth = absint($value);
-        if ($depth < 20) {
-            return 20;
+        if ($depth < 100) {
+            return 100;
         }
 
         return min($depth, 100);
+    }
+
+    private function resolve_serp_depth(array $settings): int {
+        return min(100, max(100, (int) ($settings['dataforseo_depth'] ?? 100)));
+    }
+
+    private function resolve_serp_market(array $settings): array {
+        $location = trim((string) ($settings['dataforseo_location_name'] ?? ''));
+        $language = trim((string) ($settings['dataforseo_language_name'] ?? ''));
+
+        $siteLocale = function_exists('determine_locale') ? (string) determine_locale() : (string) get_locale();
+        $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        $looksFrench = str_starts_with(strtolower($siteLocale), 'fr') || str_ends_with($host, '.fr');
+
+        if ($looksFrench && ($location === '' || ($location === 'United States' && ($language === '' || $language === 'English')))) {
+            $location = 'France';
+            $language = 'French';
+        }
+
+        if ($location === '') {
+            $location = 'United States';
+        }
+
+        if ($language === '') {
+            $language = 'English';
+        }
+
+        return [
+            'location_name' => $location,
+            'language_name' => $language,
+        ];
     }
 
     /**
@@ -1569,15 +1600,17 @@ final class WP_Rank_Tracker_Admin {
     private function run_serp_import(array $settings) {
         $this->store_serp_request_debug($settings);
         $centralService = new WP_Rank_Tracker_Central_Service($settings);
+        $market = $this->resolve_serp_market($settings);
+        $depth = $this->resolve_serp_depth($settings);
 
         if ($centralService->is_configured()) {
             $response = $centralService->import_serp_report(
                 (string) $settings['target_domain'],
                 is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [],
                 is_array($settings['competitors']) ? $settings['competitors'] : [],
-                (string) $settings['dataforseo_location_name'],
-                (string) $settings['dataforseo_language_name'],
-                max(20, (int) $settings['dataforseo_depth'])
+                (string) $market['location_name'],
+                (string) $market['language_name'],
+                $depth
             );
             if (is_wp_error($response)) {
                 return $response;
@@ -2520,8 +2553,8 @@ final class WP_Rank_Tracker_Admin {
             [
                 'attempted_at' => current_time('mysql'),
                 'keywords' => is_array($settings['tracked_keywords'] ?? null) ? array_values($settings['tracked_keywords']) : [],
-                'location_name' => (string) ($settings['dataforseo_location_name'] ?? ''),
-                'language_name' => (string) ($settings['dataforseo_language_name'] ?? ''),
+                'location_name' => $this->resolve_serp_market($settings)['location_name'],
+                'language_name' => $this->resolve_serp_market($settings)['language_name'],
                 'target_domain' => (string) ($settings['target_domain'] ?? ''),
             ],
             false
@@ -3401,7 +3434,7 @@ final class WP_Rank_Tracker_Admin {
     }
 
     private function format_rank_with_delta(string $domainLabel, int $currentRank, int $previousRank): string {
-        $rankLabel = $currentRank > 0 ? '#' . $currentRank : sprintf(__('Non detecte dans le top %d', 'wp-rank-tracker'), max(20, (int) ($this->get_settings()['dataforseo_depth'] ?? 20)));
+        $rankLabel = $currentRank > 0 ? '#' . $currentRank : sprintf(__('Non detecte dans le top %d', 'wp-rank-tracker'), $this->resolve_serp_depth($this->get_settings()));
         $delta = $this->build_rank_delta_badge($currentRank, $previousRank);
 
         return sprintf(
@@ -3508,9 +3541,9 @@ final class WP_Rank_Tracker_Admin {
         } elseif ($targetRank > 0 && $competitorRank > 0) {
             $message = __('Au moins un concurrent suivi passe encore devant ton site sur cette SERP.', 'wp-rank-tracker');
         } elseif ($targetRank === 0 && $competitorRank > 0) {
-            $message = __('Tes concurrents sont visibles, mais ton site n apparait pas encore dans la profondeur analysee.', 'wp-rank-tracker');
+            $message = __('Tes concurrents sont visibles, mais ton site n apparait pas encore dans la profondeur analysee par DataForSEO.', 'wp-rank-tracker');
         } else {
-            $message = __('Aucun domaine suivi n a ete detecte dans la profondeur analysee.', 'wp-rank-tracker');
+            $message = __('Aucun domaine suivi n a ete detecte dans la profondeur analysee par DataForSEO.', 'wp-rank-tracker');
         }
 
         if ($trend === '') {

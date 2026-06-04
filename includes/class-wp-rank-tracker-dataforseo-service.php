@@ -37,6 +37,8 @@ final class WP_Rank_Tracker_DataForSEO_Service {
         }
 
         $engines = ['google', 'bing'];
+        $market = $this->resolve_market();
+        $depth = 100;
         $rows = [];
 
         foreach ($engines as $engine) {
@@ -53,9 +55,9 @@ final class WP_Rank_Tracker_DataForSEO_Service {
                         'body' => wp_json_encode([
                             [
                                 'keyword' => $keyword,
-                                'location_name' => (string) ($this->settings['dataforseo_location_name'] ?? 'United States'),
-                                'language_name' => (string) ($this->settings['dataforseo_language_name'] ?? 'English'),
-                                'depth' => max(20, (int) ($this->settings['dataforseo_depth'] ?? 20)),
+                                'location_name' => $market['location_name'],
+                                'language_name' => $market['language_name'],
+                                'depth' => $depth,
                             ],
                         ]),
                     ]
@@ -106,9 +108,39 @@ final class WP_Rank_Tracker_DataForSEO_Service {
         return [
             'fetched_at' => current_time('mysql'),
             'keywords' => $keywords,
-            'location_name' => (string) ($this->settings['dataforseo_location_name'] ?? 'United States'),
-            'language_name' => (string) ($this->settings['dataforseo_language_name'] ?? 'English'),
+            'location_name' => $market['location_name'],
+            'language_name' => $market['language_name'],
             'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @return array{location_name:string,language_name:string}
+     */
+    private function resolve_market(): array {
+        $location = trim((string) ($this->settings['dataforseo_location_name'] ?? ''));
+        $language = trim((string) ($this->settings['dataforseo_language_name'] ?? ''));
+
+        $siteLocale = function_exists('determine_locale') ? (string) determine_locale() : (string) get_locale();
+        $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        $looksFrench = str_starts_with(strtolower($siteLocale), 'fr') || str_ends_with($host, '.fr');
+
+        if ($looksFrench && ($location === '' || ($location === 'United States' && ($language === '' || $language === 'English')))) {
+            $location = 'France';
+            $language = 'French';
+        }
+
+        if ($location === '') {
+            $location = 'United States';
+        }
+
+        if ($language === '') {
+            $language = 'English';
+        }
+
+        return [
+            'location_name' => $location,
+            'language_name' => $language,
         ];
     }
 

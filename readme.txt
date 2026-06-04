@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.29
+Stable tag: 0.1.30
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,11 @@ Dans ce mode, l'utilisateur renseigne surtout :
 Le site peut s'enregistrer automatiquement sur le service central sans demander de secret serveur a l'utilisateur final.
 
 == Changelog ==
+
+= 0.1.30 =
+* Elargit l analyse SERP DataForSEO au top 100 par defaut
+* Adapte automatiquement le marche France/French pour les sites WordPress en francais quand aucun reglage explicite n est defini
+* Clarifie les messages quand un site n apparait pas dans l analyse neutre DataForSEO
 
 = 0.1.29 =
 * Le sous-menu DataForSEO lit maintenant le report complet du serveur central quand il est configure
