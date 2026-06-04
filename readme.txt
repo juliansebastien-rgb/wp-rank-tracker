@@ -4,7 +4,7 @@ Tags: seo, rank tracker, search console, google
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 0.1.32
+Stable tag: 0.1.33
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,10 @@ Dans ce mode, l'utilisateur renseigne surtout :
 Le site peut s'enregistrer automatiquement sur le service central sans demander de secret serveur a l'utilisateur final.
 
 == Changelog ==
+
+= 0.1.33 =
+* Revient maintenant sur le bon sous-menu admin apres Enregistrer et analyser maintenant grace a un retour explicite de page
+* Rend le message DataForSEO plus clair quand le probleme vient des credits ou de la facturation
 
 = 0.1.32 =
 * Affiche maintenant la derniere erreur DataForSEO directement dans le bloc SERP externe

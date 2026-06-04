@@ -580,12 +580,14 @@ final class WP_Rank_Tracker_Admin {
                 <div class="wrt-inline-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <input type="hidden" name="action" value="wp_rank_tracker_connect_google" />
+                        <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
                         <?php wp_nonce_field(self::NONCE_ACTION_CONNECT); ?>
                         <?php submit_button($isConnected ? __('Reconnecter Google', 'wp-rank-tracker') : __('Connecter Google', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
                     </form>
                     <?php if ($isConnected) : ?>
                         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                             <input type="hidden" name="action" value="wp_rank_tracker_disconnect_google" />
+                            <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
                             <?php wp_nonce_field(self::NONCE_ACTION_DISCONNECT); ?>
                             <?php submit_button(__('Deconnecter Google', 'wp-rank-tracker'), 'delete', 'submit', false); ?>
                         </form>
@@ -595,6 +597,7 @@ final class WP_Rank_Tracker_Admin {
                     <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
                     <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
                     <input type="hidden" name="settings_section" value="google" />
+                    <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
                     <input type="hidden" name="target_domain" value="<?php echo esc_attr($settings['target_domain']); ?>" />
                     <input type="hidden" name="tracked_keywords" value="<?php echo esc_attr(implode("\n", $settings['tracked_keywords'])); ?>" />
                     <input type="hidden" name="competitors" value="<?php echo esc_attr(implode("\n", $settings['competitors'])); ?>" />
@@ -918,6 +921,7 @@ final class WP_Rank_Tracker_Admin {
                     <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
                     <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
                     <input type="hidden" name="settings_section" value="dataforseo" />
+                    <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
                     <input type="hidden" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" />
                     <input type="hidden" name="report_days" value="<?php echo esc_attr((string) $settings['report_days']); ?>" />
                     <table class="form-table" role="presentation">
@@ -1083,6 +1087,7 @@ final class WP_Rank_Tracker_Admin {
                 </div>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_import_serp" />
+                    <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
                     <?php wp_nonce_field(self::NONCE_ACTION_IMPORT_SERP); ?>
                     <?php submit_button(__('Rafraichir maintenant avec les mots-cles deja enregistres', 'wp-rank-tracker'), 'secondary'); ?>
                 </form>
@@ -2943,6 +2948,18 @@ final class WP_Rank_Tracker_Admin {
         return 'dashboard';
     }
 
+    private function get_current_page_slug(): string {
+        $page = sanitize_key((string) ($_GET['page'] ?? self::MENU_SLUG));
+        $allowedPages = [
+            self::MENU_SLUG,
+            self::MENU_SLUG_LOCAL,
+            self::MENU_SLUG_GOOGLE,
+            self::MENU_SLUG_DATAFORSEO,
+        ];
+
+        return in_array($page, $allowedPages, true) ? $page : self::MENU_SLUG;
+    }
+
     /**
      * @return array{issue:string,why:string,action:string,priority:string,priority_label:string,area:string,area_label:string}
      */
@@ -3717,6 +3734,18 @@ final class WP_Rank_Tracker_Admin {
 
     private function get_admin_page_url(): string {
         $fallback = admin_url('admin.php?page=' . self::MENU_SLUG);
+        $requestedPage = sanitize_key((string) ($_REQUEST['return_page'] ?? ''));
+        $allowedPages = [
+            self::MENU_SLUG,
+            self::MENU_SLUG_LOCAL,
+            self::MENU_SLUG_GOOGLE,
+            self::MENU_SLUG_DATAFORSEO,
+        ];
+
+        if ($requestedPage !== '' && in_array($requestedPage, $allowedPages, true)) {
+            return admin_url('admin.php?page=' . $requestedPage);
+        }
+
         $referer = wp_get_referer();
 
         if (!is_string($referer) || $referer === '') {
@@ -3739,13 +3768,6 @@ final class WP_Rank_Tracker_Admin {
         }
 
         $page = isset($query['page']) ? sanitize_key((string) $query['page']) : self::MENU_SLUG;
-        $allowedPages = [
-            self::MENU_SLUG,
-            self::MENU_SLUG_LOCAL,
-            self::MENU_SLUG_GOOGLE,
-            self::MENU_SLUG_DATAFORSEO,
-        ];
-
         $query['page'] = in_array($page, $allowedPages, true) ? $page : self::MENU_SLUG;
         unset($query['wrt_notice'], $query['wrt_message'], $query['_wpnonce'], $query['_wp_http_referer']);
 
