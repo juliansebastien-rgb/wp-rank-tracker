@@ -11,6 +11,7 @@ final class WP_Rank_Tracker_Admin {
     private const SERP_REPORT_OPTION_KEY = 'wp_rank_tracker_serp_report';
     private const SERP_HISTORY_OPTION_KEY = 'wp_rank_tracker_serp_history';
     private const SERP_REQUEST_DEBUG_OPTION_KEY = 'wp_rank_tracker_serp_request_debug';
+    private const SERP_LAST_ERROR_OPTION_KEY = 'wp_rank_tracker_serp_last_error';
     private const MENU_SLUG = 'wp-rank-tracker';
     private const MENU_SLUG_LOCAL = 'wp-rank-tracker-local';
     private const MENU_SLUG_GOOGLE = 'wp-rank-tracker-google-search-console';
@@ -164,9 +165,11 @@ final class WP_Rank_Tracker_Admin {
         if ($settingsSection === 'dataforseo' && is_array($settings['tracked_keywords']) && $settings['tracked_keywords'] !== []) {
             $serpReport = $this->run_serp_import($settings);
             if (is_wp_error($serpReport)) {
+                $this->store_serp_last_error($serpReport->get_error_message());
                 $this->redirect_with_notice('serp-error', $serpReport->get_error_message());
             }
 
+            $this->clear_serp_last_error();
             $this->store_serp_report($serpReport);
             $this->redirect_with_notice('settings-and-serp-success');
         }
@@ -218,9 +221,11 @@ final class WP_Rank_Tracker_Admin {
         $report = $this->run_serp_import($settings);
 
         if (is_wp_error($report)) {
+            $this->store_serp_last_error($report->get_error_message());
             $this->redirect_with_notice('serp-error', $report->get_error_message());
         }
 
+        $this->clear_serp_last_error();
         $this->store_serp_report($report);
         $this->redirect_with_notice('serp-success');
     }
@@ -235,9 +240,11 @@ final class WP_Rank_Tracker_Admin {
 
         $report = $this->run_serp_import($settings);
         if (is_wp_error($report)) {
+            $this->store_serp_last_error($report->get_error_message());
             return;
         }
 
+        $this->clear_serp_last_error();
         $this->store_serp_report($report);
     }
 
@@ -268,6 +275,7 @@ final class WP_Rank_Tracker_Admin {
         $centralStatus = $this->get_central_google_status($settings);
         $centralSerpStatus = $this->get_central_serp_status($settings);
         $serpRequestDebug = $this->get_serp_request_debug();
+        $serpLastError = $this->get_serp_last_error();
         $isConnected = $centralStatus['connected'];
         $isCentralRegistered = !empty($settings['central_site_token']);
         $googleProperties = $this->get_google_properties($settings, $isConnected);
@@ -1033,6 +1041,20 @@ final class WP_Rank_Tracker_Admin {
                                     (string) ($centralSerpStatus['fetched_at'] ?: __('jamais', 'wp-rank-tracker')),
                                     (int) ($centralSerpStatus['rows_count'] ?? 0),
                                     !empty($centralSerpStatus['keywords']) ? implode(', ', array_map('strval', (array) $centralSerpStatus['keywords'])) : __('aucun', 'wp-rank-tracker')
+                                )
+                            );
+                            ?>
+                        </p>
+                    </div>
+                <?php endif; ?>
+                <?php if ($serpLastError !== '') : ?>
+                    <div class="notice notice-error inline">
+                        <p>
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    __('Derniere erreur DataForSEO : %s', 'wp-rank-tracker'),
+                                    $serpLastError
                                 )
                             );
                             ?>
@@ -2542,6 +2564,18 @@ final class WP_Rank_Tracker_Admin {
             'language_name' => sanitize_text_field((string) ($payload['language_name'] ?? '')),
             'target_domain' => sanitize_text_field((string) ($payload['target_domain'] ?? '')),
         ];
+    }
+
+    private function get_serp_last_error(): string {
+        return sanitize_text_field((string) get_option(self::SERP_LAST_ERROR_OPTION_KEY, ''));
+    }
+
+    private function store_serp_last_error(string $message): void {
+        update_option(self::SERP_LAST_ERROR_OPTION_KEY, sanitize_text_field($message), false);
+    }
+
+    private function clear_serp_last_error(): void {
+        delete_option(self::SERP_LAST_ERROR_OPTION_KEY);
     }
 
     /**
