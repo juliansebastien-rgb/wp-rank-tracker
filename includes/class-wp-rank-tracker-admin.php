@@ -141,10 +141,13 @@ final class WP_Rank_Tracker_Admin {
             }
         }
 
-        $trackedKeywords = array_values(array_unique(array_merge($postedTrackedKeywords, $postedKeywordSuggestions)));
-        $keywordTargets = isset($_POST['keyword_targets']) && is_array($_POST['keyword_targets'])
-            ? $this->sanitize_keyword_targets($_POST['keyword_targets'], $trackedKeywords)
-            : (is_array($current['keyword_targets'] ?? null) ? $this->sanitize_keyword_targets($current['keyword_targets'], $trackedKeywords) : []);
+        $trackedKeywords = array_values(array_unique(array_merge(
+            $postedTrackedKeywords,
+            $postedKeywordSuggestions
+        )));
+        $pageKeywordTargets = isset($_POST['page_keyword_targets']) && is_array($_POST['page_keyword_targets'])
+            ? $this->sanitize_page_keyword_targets($_POST['page_keyword_targets'], $trackedKeywords)
+            : $this->resolve_current_page_keyword_targets($current, $trackedKeywords);
 
         $settings = [
             'target_domain' => isset($_POST['target_domain']) ? $this->sanitize_domain(wp_unslash((string) $_POST['target_domain'])) : (string) ($current['target_domain'] ?? ''),
@@ -157,7 +160,7 @@ final class WP_Rank_Tracker_Admin {
             'report_days' => $this->sanitize_report_days($_POST['report_days'] ?? ($current['report_days'] ?? 28)),
             'competitors' => isset($_POST['competitors']) ? $this->sanitize_line_list((string) wp_unslash($_POST['competitors'])) : (is_array($current['competitors'] ?? null) ? array_values($current['competitors']) : []),
             'tracked_keywords' => $trackedKeywords,
-            'keyword_targets' => $keywordTargets,
+            'page_keyword_targets' => $pageKeywordTargets,
             'dataforseo_login' => isset($_POST['dataforseo_login']) ? sanitize_text_field(wp_unslash((string) $_POST['dataforseo_login'])) : (string) ($current['dataforseo_login'] ?? ''),
             'dataforseo_password' => $postedDataForSeoPassword !== '' ? $postedDataForSeoPassword : (string) ($current['dataforseo_password'] ?? ''),
             'dataforseo_location_name' => isset($_POST['dataforseo_location_name']) ? sanitize_text_field(wp_unslash((string) $_POST['dataforseo_location_name'])) : (string) ($current['dataforseo_location_name'] ?? 'United States'),
@@ -307,10 +310,10 @@ final class WP_Rank_Tracker_Admin {
         $googleClickChartRows = $this->build_google_click_chart_rows($pageRows);
         $serpVisibilityChartRows = $this->build_serp_visibility_chart_rows($settings, $serpReport);
         $detectedKeywordSuggestions = $this->build_detected_keyword_suggestions($localAudit['pages'], is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
-        $localKeywordAlignmentRows = $this->build_local_keyword_alignment_rows(
+        $pageKeywordRows = $this->build_page_keyword_rows(
             $localAudit['pages'],
             is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [],
-            is_array($settings['keyword_targets'] ?? null) ? $settings['keyword_targets'] : []
+            $this->resolve_current_page_keyword_targets($settings, is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [])
         );
         $dailySummary = $this->build_daily_summary($priorityOpportunities, $googleTrendRows, $serpComparisonRows);
         $nextActions = $this->build_next_actions($settings, $isConnected, $selectedProperty, $priorityOpportunities);
@@ -582,72 +585,76 @@ final class WP_Rank_Tracker_Admin {
 
             <section class="wrt-card wrt-table-card">
                 <div class="wrt-section-head">
-                    <h2><?php esc_html_e('Alignement pages / mots-cles suivis', 'wp-rank-tracker'); ?></h2>
+                    <h2><?php esc_html_e('Mots-cles par page', 'wp-rank-tracker'); ?></h2>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <input type="hidden" name="action" value="wp_rank_tracker_refresh_local" />
                         <?php wp_nonce_field(self::NONCE_ACTION_REFRESH_LOCAL); ?>
                         <?php submit_button(__('Mettre a jour', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
                     </form>
                 </div>
-                <p><?php esc_html_e('Affecte chaque mot-cle a sa page cible. Les conseils locaux se baseront sur cette intention declaree, au lieu de partir seulement de mots-cles probables.', 'wp-rank-tracker'); ?></p>
+                <p><?php esc_html_e('Pars de tes pages et articles, puis affecte un mot-cle principal et des mots-cles secondaires. Les conseils locaux se baseront sur cette intention declaree.', 'wp-rank-tracker'); ?></p>
                 <?php if ($settings['tracked_keywords'] === []) : ?>
-                    <p><?php esc_html_e('Ajoute d abord tes mots-cles suivis dans le bloc au-dessus. Ce tableau analysera ensuite quelles pages peuvent vraiment les porter.', 'wp-rank-tracker'); ?></p>
-                <?php elseif ($localKeywordAlignmentRows === []) : ?>
+                    <p><?php esc_html_e('Ajoute d abord tes mots-cles suivis dans le bloc au-dessus. Tu pourras ensuite les affecter aux pages et articles.', 'wp-rank-tracker'); ?></p>
+                <?php elseif ($pageKeywordRows === []) : ?>
                     <p><?php esc_html_e('Aucune page publiee analysee pour le moment.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
                     <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
-                    <input type="hidden" name="settings_section" value="local_targets" />
+                    <input type="hidden" name="settings_section" value="local_page_keywords" />
                     <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
                     <table class="widefat striped">
                         <thead>
                             <tr>
-                                <th><?php esc_html_e('Mot-cle suivi', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Page cible', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Page / article', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Mot-cle principal', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Mots-cles secondaires', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Alignement local', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Signaux detectes', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Action conseillee', 'wp-rank-tracker'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($localKeywordAlignmentRows as $row) : ?>
+                            <?php foreach ($pageKeywordRows as $row) : ?>
                                 <tr>
                                     <td>
-                                        <strong><?php echo esc_html($row['keyword']); ?></strong>
-                                    </td>
-                                    <td>
-                                        <select name="keyword_targets[<?php echo esc_attr($row['keyword']); ?>]" class="regular-text">
-                                            <option value="0"><?php esc_html_e('Auto : meilleure page candidate', 'wp-rank-tracker'); ?></option>
-                                            <?php foreach ($localAudit['pages'] as $targetPage) : ?>
-                                                <option value="<?php echo esc_attr((string) $targetPage['post_id']); ?>" <?php selected((int) $row['target_post_id'], (int) $targetPage['post_id']); ?>>
-                                                    <?php echo esc_html($targetPage['title']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <br />
-                                        <?php if ($row['page'] === null) : ?>
-                                            <span class="wrt-match wrt-match-empty"><?php esc_html_e('Aucune page claire', 'wp-rank-tracker'); ?></span>
-                                        <?php else : ?>
-                                            <span class="wrt-match wrt-match-<?php echo esc_attr($row['target_mode'] === 'manual' ? 'strong' : 'partial'); ?>"><?php echo esc_html($row['target_mode_label']); ?></span><br />
-                                            <strong><?php echo esc_html($row['page']['title']); ?></strong><br />
-                                            <span class="description"><?php echo esc_html($row['page']['type_label'] . ' - ' . $row['page']['url']); ?></span>
-                                        <?php endif; ?>
-                                        <?php if ($row['actions'] !== []) : ?>
+                                        <strong><?php echo esc_html($row['page']['title']); ?></strong><br />
+                                        <span class="description"><?php echo esc_html($row['page']['type_label'] . ' - ' . $row['page']['url']); ?></span>
                                         <div class="wrt-row-actions">
-                                            <?php foreach ($row['actions'] as $action) : ?>
+                                            <?php foreach ($row['page']['actions'] as $action) : ?>
                                                 <a class="button button-small" href="<?php echo esc_url($action['url']); ?>">
                                                     <?php echo esc_html($action['label']); ?>
                                                 </a>
                                             <?php endforeach; ?>
                                         </div>
-                                        <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="wrt-match wrt-match-<?php echo esc_attr($row['status']); ?>"><?php echo esc_html($row['status_label']); ?></span>
+                                        <select class="regular-text" name="page_keyword_targets[<?php echo esc_attr((string) $row['post_id']); ?>][primary]">
+                                            <option value=""><?php esc_html_e('Choisir un mot-cle principal', 'wp-rank-tracker'); ?></option>
+                                            <?php foreach ($settings['tracked_keywords'] as $keywordOption) : ?>
+                                                <option value="<?php echo esc_attr($keywordOption); ?>" <?php selected($row['primary_keyword'], $keywordOption); ?>>
+                                                    <?php echo esc_html($keywordOption); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <p class="description"><?php echo esc_html($row['detected_primary']); ?></p>
                                     </td>
                                     <td>
-                                        <?php echo esc_html($row['signals']); ?>
+                                        <div class="wrt-keyword-suggestions">
+                                            <?php foreach ($settings['tracked_keywords'] as $keywordOption) : ?>
+                                                <?php if ($keywordOption === $row['primary_keyword']) : ?>
+                                                    <?php continue; ?>
+                                                <?php endif; ?>
+                                                <label class="wrt-keyword-pill">
+                                                    <input type="checkbox" name="page_keyword_targets[<?php echo esc_attr((string) $row['post_id']); ?>][secondary][]" value="<?php echo esc_attr($keywordOption); ?>" <?php checked(in_array($keywordOption, $row['secondary_keywords'], true)); ?> />
+                                                    <?php echo esc_html($keywordOption); ?>
+                                                </label>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <p class="description"><?php echo esc_html($row['detected_secondary']); ?></p>
+                                    </td>
+                                    <td>
+                                        <span class="wrt-match wrt-match-<?php echo esc_attr($row['status']); ?>"><?php echo esc_html($row['status_label']); ?></span><br />
+                                        <span class="description"><?php echo esc_html($row['signals']); ?></span>
                                     </td>
                                     <td>
                                         <?php echo esc_html($row['action']); ?>
@@ -656,7 +663,7 @@ final class WP_Rank_Tracker_Admin {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
-                    <?php submit_button(__('Enregistrer les pages cibles', 'wp-rank-tracker')); ?>
+                    <?php submit_button(__('Enregistrer les mots-cles des pages', 'wp-rank-tracker')); ?>
                     </form>
                 <?php endif; ?>
                 </section>
@@ -1419,7 +1426,7 @@ final class WP_Rank_Tracker_Admin {
             'report_days' => 28,
             'competitors' => [],
             'tracked_keywords' => [],
-            'keyword_targets' => [],
+            'page_keyword_targets' => [],
             'dataforseo_login' => '',
             'dataforseo_password' => '',
             'dataforseo_location_name' => '',
@@ -1667,28 +1674,23 @@ final class WP_Rank_Tracker_Admin {
     /**
      * @param mixed $value
      * @param string[] $trackedKeywords
-     * @return array<string, int>
+     * @return array<int, array{primary:string,secondary:string[]}>
      */
-    private function sanitize_keyword_targets($value, array $trackedKeywords): array {
+    private function sanitize_page_keyword_targets($value, array $trackedKeywords): array {
         if (!is_array($value) || $trackedKeywords === []) {
             return [];
         }
 
-        $trackedMap = [];
+        $allowedKeywords = [];
         foreach ($trackedKeywords as $keyword) {
             $keyword = trim((string) $keyword);
             if ($keyword !== '') {
-                $trackedMap[$keyword] = true;
+                $allowedKeywords[$keyword] = true;
             }
         }
 
         $targets = [];
-        foreach ($value as $keyword => $postId) {
-            $keyword = sanitize_text_field(wp_unslash((string) $keyword));
-            if ($keyword === '' || !isset($trackedMap[$keyword])) {
-                continue;
-            }
-
+        foreach ($value as $postId => $rawTarget) {
             $postId = absint($postId);
             if ($postId <= 0) {
                 continue;
@@ -1699,10 +1701,79 @@ final class WP_Rank_Tracker_Admin {
                 continue;
             }
 
-            $targets[$keyword] = $postId;
+            $primary = '';
+            $secondary = [];
+            if (is_array($rawTarget)) {
+                $primary = sanitize_text_field(wp_unslash((string) ($rawTarget['primary'] ?? '')));
+                if (!isset($allowedKeywords[$primary])) {
+                    $primary = '';
+                }
+
+                $rawSecondary = $rawTarget['secondary'] ?? [];
+                if (is_array($rawSecondary)) {
+                    foreach ($rawSecondary as $secondaryKeyword) {
+                        $secondaryKeyword = sanitize_text_field(wp_unslash((string) $secondaryKeyword));
+                        if ($secondaryKeyword !== '' && isset($allowedKeywords[$secondaryKeyword]) && $secondaryKeyword !== $primary) {
+                            $secondary[] = $secondaryKeyword;
+                        }
+                    }
+                } else {
+                    foreach ($this->sanitize_line_list((string) wp_unslash($rawSecondary)) as $secondaryKeyword) {
+                        if (isset($allowedKeywords[$secondaryKeyword]) && $secondaryKeyword !== $primary) {
+                            $secondary[] = $secondaryKeyword;
+                        }
+                    }
+                }
+            }
+
+            $secondary = array_values(array_unique($secondary));
+            if ($primary === '' && $secondary === []) {
+                continue;
+            }
+
+            $targets[$postId] = [
+                'primary' => $primary,
+                'secondary' => $secondary,
+            ];
         }
 
         return $targets;
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @param string[] $trackedKeywords
+     * @return array<int, array{primary:string,secondary:string[]}>
+     */
+    private function resolve_current_page_keyword_targets(array $settings, array $trackedKeywords): array {
+        if (is_array($settings['page_keyword_targets'] ?? null)) {
+            return $this->sanitize_page_keyword_targets($settings['page_keyword_targets'], $trackedKeywords);
+        }
+
+        if (!is_array($settings['keyword_targets'] ?? null)) {
+            return [];
+        }
+
+        $legacyTargets = [];
+        foreach ($settings['keyword_targets'] as $keyword => $postId) {
+            $postId = absint($postId);
+            $keyword = sanitize_text_field((string) $keyword);
+            if ($postId <= 0 || $keyword === '') {
+                continue;
+            }
+
+            if (!isset($legacyTargets[$postId])) {
+                $legacyTargets[$postId] = [
+                    'primary' => $keyword,
+                    'secondary' => [],
+                ];
+                continue;
+            }
+
+            $legacyTargets[$postId]['secondary'][] = $keyword;
+        }
+
+        return $this->sanitize_page_keyword_targets($legacyTargets, $trackedKeywords);
     }
 
     private function is_google_connected(array $settings): bool {
@@ -3951,91 +4022,80 @@ final class WP_Rank_Tracker_Admin {
     /**
      * @param array<int, array<string, mixed>> $localPages
      * @param string[] $trackedKeywords
-     * @param array<string, int> $keywordTargets
-     * @return array<int, array{keyword:string,page:?array<string,mixed>,target_post_id:int,target_mode:string,target_mode_label:string,status:string,status_label:string,signals:string,action:string,actions:array<int, array{label:string,url:string}>}>
+     * @param array<int, array{primary:string,secondary:string[]}> $pageKeywordTargets
+     * @return array<int, array{post_id:int,page:array<string,mixed>,primary_keyword:string,secondary_keywords:string[],detected_primary:string,detected_secondary:string,status:string,status_label:string,signals:string,action:string}>
      */
-    private function build_local_keyword_alignment_rows(array $localPages, array $trackedKeywords, array $keywordTargets): array {
+    private function build_page_keyword_rows(array $localPages, array $trackedKeywords, array $pageKeywordTargets): array {
         $rows = [];
-        $pagesById = [];
+        $hasTrackedKeywords = $trackedKeywords !== [];
+
         foreach ($localPages as $page) {
             $postId = (int) ($page['post_id'] ?? 0);
-            if ($postId > 0) {
-                $pagesById[$postId] = $page;
-            }
-        }
-
-        foreach ($trackedKeywords as $keyword) {
-            $keyword = trim((string) $keyword);
-            if ($keyword === '') {
+            if ($postId <= 0) {
                 continue;
             }
 
-            $targetPostId = (int) ($keywordTargets[$keyword] ?? 0);
-            $isManualTarget = $targetPostId > 0 && isset($pagesById[$targetPostId]);
-            $best = null;
-            $bestScore = 0.0;
+            $target = $pageKeywordTargets[$postId] ?? ['primary' => '', 'secondary' => []];
+            $primaryKeyword = trim((string) ($target['primary'] ?? ''));
+            $secondaryKeywords = is_array($target['secondary'] ?? null) ? array_values(array_filter(array_map('strval', $target['secondary']))) : [];
+            $detectedPrimary = !empty($page['primary_keyword'])
+                ? sprintf(__('Detecte localement : %s', 'wp-rank-tracker'), (string) $page['primary_keyword'])
+                : __('Aucun mot-cle principal detecte localement.', 'wp-rank-tracker');
+            $detectedSecondary = is_array($page['secondary_keywords'] ?? null) && $page['secondary_keywords'] !== []
+                ? sprintf(__('Suggestions locales : %s', 'wp-rank-tracker'), implode(', ', array_map('strval', array_slice($page['secondary_keywords'], 0, 3))))
+                : __('Aucune suggestion locale.', 'wp-rank-tracker');
 
-            if ($isManualTarget) {
-                $best = $pagesById[$targetPostId];
-                $bestScore = $this->score_page_for_tracked_keyword($best, $keyword);
-            } else {
-                foreach ($localPages as $page) {
-                    $score = $this->score_page_for_tracked_keyword($page, $keyword);
-                    if ($score > $bestScore) {
-                        $bestScore = $score;
-                        $best = $page;
-                    }
-                }
-            }
-
-            if ($best === null) {
+            if (!$hasTrackedKeywords) {
                 $rows[] = [
-                    'keyword' => $keyword,
-                    'page' => null,
-                    'target_post_id' => 0,
-                    'target_mode' => 'auto',
-                    'target_mode_label' => __('Suggestion auto', 'wp-rank-tracker'),
+                    'post_id' => $postId,
+                    'page' => $page,
+                    'primary_keyword' => '',
+                    'secondary_keywords' => [],
+                    'detected_primary' => $detectedPrimary,
+                    'detected_secondary' => $detectedSecondary,
                     'status' => 'empty',
                     'status_label' => __('Absent', 'wp-rank-tracker'),
-                    'signals' => __('Aucun titre, H1, slug ou terme local ne reprend clairement ce mot-cle.', 'wp-rank-tracker'),
-                    'action' => __('Choisis une page cible existante ou cree une page dediee avant de demander une optimisation.', 'wp-rank-tracker'),
-                    'actions' => [],
+                    'signals' => __('Aucun mot-cle suivi disponible.', 'wp-rank-tracker'),
+                    'action' => __('Ajoute d abord des mots-cles suivis dans le bloc au-dessus, puis affecte-les a cette page.', 'wp-rank-tracker'),
                 ];
                 continue;
             }
 
-            $status = 'weak';
-            $statusLabel = __('Faible', 'wp-rank-tracker');
-            $action = sprintf(__('La page candidate existe, mais elle doit etre retravaillee autour de "%s" : titre, H1, introduction, H2 et liens internes.', 'wp-rank-tracker'), $keyword);
-
-            if ($bestScore <= 0) {
+            if ($primaryKeyword === '') {
+                $status = 'empty';
+                $statusLabel = __('A definir', 'wp-rank-tracker');
+                $signals = __('Aucun mot-cle principal affecte a cette page.', 'wp-rank-tracker');
+                $action = __('Choisis le mot-cle principal que cette page doit travailler. Les mots-cles secondaires servent ensuite a enrichir le champ lexical.', 'wp-rank-tracker');
+            } else {
+                $score = $this->score_page_for_tracked_keyword($page, $primaryKeyword);
                 $status = 'empty';
                 $statusLabel = __('Absent', 'wp-rank-tracker');
-                $action = sprintf(__('La page cible est choisie, mais elle ne contient pas encore clairement "%s". Ajoute ce mot-cle dans le titre SEO, le H1, l introduction et au moins un H2.', 'wp-rank-tracker'), $keyword);
-            } elseif ($bestScore >= 0.75) {
-                $status = 'strong';
-                $statusLabel = __('Bon', 'wp-rank-tracker');
-                $action = $isManualTarget
-                    ? __('Page cible coherente. Verifie ensuite avec Google Search Console si Google confirme cette intention et si la position progresse.', 'wp-rank-tracker')
-                    : __('Page candidate coherente. Tu peux la valider comme page cible, puis verifier dans Google Search Console si Google confirme cette intention.', 'wp-rank-tracker');
-            } elseif ($bestScore >= 0.4) {
-                $status = 'partial';
-                $statusLabel = __('Partiel', 'wp-rank-tracker');
-                $action = sprintf(__('Renforce cette page sur "%s" sans changer de cible : titre/H1 plus clair, H2 dedies et exemples plus precis.', 'wp-rank-tracker'), $keyword);
+                $action = sprintf(__('Cette page cible "%s", mais le mot-cle n apparait pas encore clairement. Ajoute-le dans le titre SEO, le H1, l introduction et au moins un H2.', 'wp-rank-tracker'), $primaryKeyword);
+
+                if ($score >= 0.75) {
+                    $status = 'strong';
+                    $statusLabel = __('Bon', 'wp-rank-tracker');
+                    $action = sprintf(__('La page est coherente avec "%s". Utilise les mots-cles secondaires pour enrichir les H2, exemples, FAQ et liens internes.', 'wp-rank-tracker'), $primaryKeyword);
+                } elseif ($score >= 0.4) {
+                    $status = 'partial';
+                    $statusLabel = __('Partiel', 'wp-rank-tracker');
+                    $action = sprintf(__('Renforce cette page autour de "%s" : title/H1 plus clair, H2 dedies, exemples concrets et liens internes.', 'wp-rank-tracker'), $primaryKeyword);
+                }
+
+                $signals = $this->summarize_local_keyword_signals($page);
             }
 
-            $signals = $this->summarize_local_keyword_signals($best);
             $rows[] = [
-                'keyword' => $keyword,
-                'page' => $best,
-                'target_post_id' => $isManualTarget ? $targetPostId : 0,
-                'target_mode' => $isManualTarget ? 'manual' : 'auto',
-                'target_mode_label' => $isManualTarget ? __('Page cible choisie', 'wp-rank-tracker') : __('Suggestion auto', 'wp-rank-tracker'),
+                'post_id' => $postId,
+                'page' => $page,
+                'primary_keyword' => $primaryKeyword,
+                'secondary_keywords' => $secondaryKeywords,
+                'detected_primary' => $detectedPrimary,
+                'detected_secondary' => $detectedSecondary,
                 'status' => $status,
                 'status_label' => $statusLabel,
                 'signals' => $signals,
                 'action' => $action,
-                'actions' => is_array($best['actions'] ?? null) ? $best['actions'] : [],
             ];
         }
 
