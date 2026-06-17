@@ -123,7 +123,8 @@ final class WP_Rank_Tracker_DataForSEO_Service {
 
         $siteLocale = function_exists('determine_locale') ? (string) determine_locale() : (string) get_locale();
         $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
-        $looksFrench = str_starts_with(strtolower($siteLocale), 'fr') || str_ends_with($host, '.fr');
+        $lowerLocale = strtolower($siteLocale);
+        $looksFrench = strpos($lowerLocale, 'fr') === 0 || substr($host, -3) === '.fr';
 
         if ($looksFrench && ($location === '' || ($location === 'United States' && ($language === '' || $language === 'English')))) {
             $location = 'France';

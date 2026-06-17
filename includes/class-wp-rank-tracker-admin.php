@@ -127,23 +127,38 @@ final class WP_Rank_Tracker_Admin {
         $postedClientSecret = sanitize_text_field(wp_unslash((string) ($_POST['google_client_secret'] ?? '')));
         $postedRefreshToken = sanitize_text_field(wp_unslash((string) ($_POST['google_refresh_token'] ?? '')));
         $postedDataForSeoPassword = sanitize_text_field(wp_unslash((string) ($_POST['dataforseo_password'] ?? '')));
+        $postedTrackedKeywords = isset($_POST['tracked_keywords'])
+            ? $this->sanitize_line_list((string) wp_unslash($_POST['tracked_keywords']))
+            : (is_array($current['tracked_keywords'] ?? null) ? array_values($current['tracked_keywords']) : []);
+        $postedKeywordSuggestions = [];
+
+        if (isset($_POST['tracked_keyword_suggestions']) && is_array($_POST['tracked_keyword_suggestions'])) {
+            foreach ($_POST['tracked_keyword_suggestions'] as $keywordSuggestion) {
+                $postedKeywordSuggestions = array_merge(
+                    $postedKeywordSuggestions,
+                    $this->sanitize_line_list((string) wp_unslash($keywordSuggestion))
+                );
+            }
+        }
+
+        $trackedKeywords = array_values(array_unique(array_merge($postedTrackedKeywords, $postedKeywordSuggestions)));
 
         $settings = [
-            'target_domain' => $this->sanitize_domain(wp_unslash((string) ($_POST['target_domain'] ?? ''))),
+            'target_domain' => isset($_POST['target_domain']) ? $this->sanitize_domain(wp_unslash((string) $_POST['target_domain'])) : (string) ($current['target_domain'] ?? ''),
             'central_api_base_url' => 'https://api.mapage-wp.online',
             'central_site_token' => (string) ($current['central_site_token'] ?? ''),
-            'gsc_property_uri' => sanitize_text_field(wp_unslash((string) ($_POST['gsc_property_uri'] ?? ''))),
-            'google_client_id' => sanitize_text_field(wp_unslash((string) ($_POST['google_client_id'] ?? ''))),
+            'gsc_property_uri' => isset($_POST['gsc_property_uri']) ? sanitize_text_field(wp_unslash((string) $_POST['gsc_property_uri'])) : (string) ($current['gsc_property_uri'] ?? ''),
+            'google_client_id' => isset($_POST['google_client_id']) ? sanitize_text_field(wp_unslash((string) $_POST['google_client_id'])) : (string) ($current['google_client_id'] ?? ''),
             'google_client_secret' => $postedClientSecret !== '' ? $postedClientSecret : (string) ($current['google_client_secret'] ?? ''),
             'google_refresh_token' => $postedRefreshToken !== '' ? $postedRefreshToken : (string) ($current['google_refresh_token'] ?? ''),
-            'report_days' => $this->sanitize_report_days($_POST['report_days'] ?? 28),
-            'competitors' => $this->sanitize_line_list((string) ($_POST['competitors'] ?? '')),
-            'tracked_keywords' => $this->sanitize_line_list((string) ($_POST['tracked_keywords'] ?? '')),
-            'dataforseo_login' => sanitize_text_field(wp_unslash((string) ($_POST['dataforseo_login'] ?? ''))),
+            'report_days' => $this->sanitize_report_days($_POST['report_days'] ?? ($current['report_days'] ?? 28)),
+            'competitors' => isset($_POST['competitors']) ? $this->sanitize_line_list((string) wp_unslash($_POST['competitors'])) : (is_array($current['competitors'] ?? null) ? array_values($current['competitors']) : []),
+            'tracked_keywords' => $trackedKeywords,
+            'dataforseo_login' => isset($_POST['dataforseo_login']) ? sanitize_text_field(wp_unslash((string) $_POST['dataforseo_login'])) : (string) ($current['dataforseo_login'] ?? ''),
             'dataforseo_password' => $postedDataForSeoPassword !== '' ? $postedDataForSeoPassword : (string) ($current['dataforseo_password'] ?? ''),
-            'dataforseo_location_name' => sanitize_text_field(wp_unslash((string) ($_POST['dataforseo_location_name'] ?? 'United States'))),
-            'dataforseo_language_name' => sanitize_text_field(wp_unslash((string) ($_POST['dataforseo_language_name'] ?? 'English'))),
-            'dataforseo_depth' => $this->sanitize_serp_depth($_POST['dataforseo_depth'] ?? 20),
+            'dataforseo_location_name' => isset($_POST['dataforseo_location_name']) ? sanitize_text_field(wp_unslash((string) $_POST['dataforseo_location_name'])) : (string) ($current['dataforseo_location_name'] ?? 'United States'),
+            'dataforseo_language_name' => isset($_POST['dataforseo_language_name']) ? sanitize_text_field(wp_unslash((string) $_POST['dataforseo_language_name'])) : (string) ($current['dataforseo_language_name'] ?? 'English'),
+            'dataforseo_depth' => $this->sanitize_serp_depth($_POST['dataforseo_depth'] ?? ($current['dataforseo_depth'] ?? 20)),
         ];
 
         update_option(self::OPTION_KEY, $settings, false);
@@ -287,6 +302,7 @@ final class WP_Rank_Tracker_Admin {
         $quickActions = $this->build_quick_actions($settings, $priorityOpportunities);
         $googleClickChartRows = $this->build_google_click_chart_rows($pageRows);
         $serpVisibilityChartRows = $this->build_serp_visibility_chart_rows($settings, $serpReport);
+        $detectedKeywordSuggestions = $this->build_detected_keyword_suggestions($localAudit['pages'], is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
         $dailySummary = $this->build_daily_summary($priorityOpportunities, $googleTrendRows, $serpComparisonRows);
         $nextActions = $this->build_next_actions($settings, $isConnected, $selectedProperty, $priorityOpportunities);
         $alertPages = $this->build_alert_pages($googleTrendRows);
@@ -479,7 +495,7 @@ final class WP_Rank_Tracker_Admin {
                     <section class="wrt-panel">
                         <h3><?php esc_html_e('Positions de tes mots-cles suivis', 'wp-rank-tracker'); ?></h3>
                         <?php if ($serpVisibilityChartRows === []) : ?>
-                            <p class="wrt-empty-copy"><?php esc_html_e('Ajoute des mots-cles et lance DataForSEO pour visualiser leur position actuelle.', 'wp-rank-tracker'); ?></p>
+                            <p class="wrt-empty-copy"><?php esc_html_e('Ajoute des mots-cles dans Local, puis lance DataForSEO pour visualiser leur position actuelle.', 'wp-rank-tracker'); ?></p>
                         <?php else : ?>
                             <div class="wrt-chart-list">
                                 <?php foreach ($serpVisibilityChartRows as $row) : ?>
@@ -506,6 +522,53 @@ final class WP_Rank_Tracker_Admin {
                     <div class="<?php echo esc_attr($localAudit['page_count'] > 0 ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html((string) $localAudit['page_count']); ?></strong><span><?php esc_html_e('pages analysees localement', 'wp-rank-tracker'); ?></span></div>
                     <div class="<?php echo esc_attr($localAudit['with_focus_count'] > 0 ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html((string) $localAudit['with_focus_count']); ?></strong><span><?php esc_html_e('pages avec mot-cle principal detecte', 'wp-rank-tracker'); ?></span></div>
                 </div>
+            </section>
+
+            <section class="wrt-card wrt-table-card wrt-keyword-strategy">
+                <h2><?php esc_html_e('Mots-cles suivis', 'wp-rank-tracker'); ?></h2>
+                <p><?php esc_html_e('Commence ici : choisis les mots-cles importants pour ton client. Les conseils, Google Search Console et DataForSEO utiliseront ensuite cette liste comme reference.', 'wp-rank-tracker'); ?></p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
+                    <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
+                    <input type="hidden" name="settings_section" value="local_keywords" />
+                    <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
+                    <input type="hidden" name="target_domain" value="<?php echo esc_attr($settings['target_domain']); ?>" />
+                    <input type="hidden" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" />
+                    <input type="hidden" name="report_days" value="<?php echo esc_attr((string) $settings['report_days']); ?>" />
+                    <input type="hidden" name="competitors" value="<?php echo esc_attr(implode("\n", $settings['competitors'])); ?>" />
+                    <div class="wrt-keyword-grid">
+                        <div>
+                            <label class="wrt-field-label" for="wrt-local-tracked-keywords"><?php esc_html_e('Liste prioritaire', 'wp-rank-tracker'); ?></label>
+                            <textarea id="wrt-local-tracked-keywords" name="tracked_keywords" rows="8" class="large-text" placeholder="formation professionnelle&#10;formation wordpress&#10;certification qualiopi"><?php echo esc_textarea(implode("\n", $settings['tracked_keywords'])); ?></textarea>
+                            <p class="description"><?php esc_html_e('Un mot-cle par ligne. Retire les requetes de marque si tu ne veux pas que le plugin conseille de travailler dessus.', 'wp-rank-tracker'); ?></p>
+                        </div>
+                        <div>
+                            <strong class="wrt-field-label"><?php esc_html_e('Suggestions detectees localement', 'wp-rank-tracker'); ?></strong>
+                            <?php if ($detectedKeywordSuggestions === []) : ?>
+                                <p class="description"><?php esc_html_e('Aucune suggestion locale disponible pour le moment. Lance une mise a jour de l audit local.', 'wp-rank-tracker'); ?></p>
+                            <?php else : ?>
+                                <div class="wrt-keyword-suggestions">
+                                    <?php foreach (array_slice($detectedKeywordSuggestions, 0, 18) as $suggestion) : ?>
+                                        <?php if (!empty($suggestion['tracked'])) : ?>
+                                            <span class="wrt-keyword-pill wrt-keyword-pill-active">
+                                                <?php echo esc_html($suggestion['keyword']); ?>
+                                                <small><?php esc_html_e('suivi', 'wp-rank-tracker'); ?></small>
+                                            </span>
+                                        <?php else : ?>
+                                            <label class="wrt-keyword-pill">
+                                                <input type="checkbox" name="tracked_keyword_suggestions[]" value="<?php echo esc_attr($suggestion['keyword']); ?>" />
+                                                <?php echo esc_html($suggestion['keyword']); ?>
+                                                <small><?php printf(esc_html__('%d page(s)', 'wp-rank-tracker'), (int) $suggestion['pages']); ?></small>
+                                            </label>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                </div>
+                                <p class="description"><?php esc_html_e('Coche une suggestion pour l ajouter a la liste. Tu peux aussi ecrire tes propres mots-cles a gauche.', 'wp-rank-tracker'); ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php submit_button(__('Enregistrer les mots-cles suivis', 'wp-rank-tracker')); ?>
+                </form>
             </section>
 
             <section class="wrt-card wrt-table-card">
@@ -968,7 +1031,7 @@ final class WP_Rank_Tracker_Admin {
 
             <?php if ($currentSection === 'dataforseo') : ?>
             <section class="wrt-card wrt-table-card">
-                <h2><?php esc_html_e('Configuration du suivi', 'wp-rank-tracker'); ?></h2>
+                <h2><?php esc_html_e('Suivi concurrentiel optionnel', 'wp-rank-tracker'); ?></h2>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_save_settings" />
                     <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
@@ -976,6 +1039,7 @@ final class WP_Rank_Tracker_Admin {
                     <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
                     <input type="hidden" name="gsc_property_uri" value="<?php echo esc_attr($selectedProperty); ?>" />
                     <input type="hidden" name="report_days" value="<?php echo esc_attr((string) $settings['report_days']); ?>" />
+                    <input type="hidden" name="tracked_keywords" value="<?php echo esc_attr(implode("\n", $settings['tracked_keywords'])); ?>" />
                     <table class="form-table" role="presentation">
                         <tbody>
                             <tr>
@@ -993,10 +1057,11 @@ final class WP_Rank_Tracker_Admin {
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row"><label for="wrt-tracked-keywords"><?php esc_html_e('Mots-cles surveilles', 'wp-rank-tracker'); ?></label></th>
+                                <th scope="row"><?php esc_html_e('Mots-cles utilises', 'wp-rank-tracker'); ?></th>
                                 <td>
-                                    <textarea id="wrt-tracked-keywords" name="tracked_keywords" rows="6" class="large-text" placeholder="formation seo&#10;consultant seo local"><?php echo esc_textarea(implode("\n", $settings['tracked_keywords'])); ?></textarea>
-                                    <p class="description"><?php esc_html_e('Un mot-cle par ligne. Sert au comparatif entre ton focus local, Google et les concurrents.', 'wp-rank-tracker'); ?></p>
+                                    <p><strong><?php printf(esc_html__('%d mot(s)-cle(s) suivi(s)', 'wp-rank-tracker'), count($settings['tracked_keywords'])); ?></strong></p>
+                                    <p class="description"><?php esc_html_e('La liste des mots-cles se gere maintenant dans l onglet Local. DataForSEO utilise cette liste pour lancer l analyse externe.', 'wp-rank-tracker'); ?></p>
+                                    <a class="button button-secondary" href="<?php echo esc_url(admin_url('admin.php?page=' . self::MENU_SLUG_LOCAL)); ?>"><?php esc_html_e('Modifier les mots-cles dans Local', 'wp-rank-tracker'); ?></a>
                                 </td>
                             </tr>
                             <tr>
@@ -1008,14 +1073,14 @@ final class WP_Rank_Tracker_Admin {
                             </tr>
                         </tbody>
                     </table>
-                    <?php submit_button(__('Enregistrer et analyser maintenant', 'wp-rank-tracker')); ?>
+                    <?php submit_button(__('Enregistrer et lancer l analyse externe', 'wp-rank-tracker')); ?>
                 </form>
             </section>
 
             <section class="wrt-card wrt-table-card">
                 <h2><?php esc_html_e('Comparatif concurrentiel prepare', 'wp-rank-tracker'); ?></h2>
                 <?php if ($settings['tracked_keywords'] === []) : ?>
-                    <p><?php esc_html_e('Ajoute d abord des mots-cles surveilles pour construire le comparatif.', 'wp-rank-tracker'); ?></p>
+                    <p><?php esc_html_e('Ajoute d abord tes mots-cles suivis dans l onglet Local pour construire le comparatif.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
                     <div class="wrt-market-intro">
                         <p><?php esc_html_e('Cette vue ne pretend pas encore connaitre les positions exactes des concurrents. Elle prepare la lecture strategique : mots-cles cibles, pages locales associees, signaux Google existants et liste des concurrents a comparer en phase 3.', 'wp-rank-tracker'); ?></p>
@@ -1143,9 +1208,9 @@ final class WP_Rank_Tracker_Admin {
                     <?php wp_nonce_field(self::NONCE_ACTION_IMPORT_SERP); ?>
                     <?php submit_button(__('Rafraichir maintenant avec les mots-cles deja enregistres', 'wp-rank-tracker'), 'secondary'); ?>
                 </form>
-                <p class="description"><?php esc_html_e('Si tu viens de modifier la liste au-dessus, utilise d abord "Enregistrer et analyser maintenant". Le bouton de rafraichissement relance seulement le dernier jeu de mots-cles enregistre.', 'wp-rank-tracker'); ?></p>
+                <p class="description"><?php esc_html_e('Si tu viens de modifier la liste dans Local, enregistre DataForSEO pour relancer l analyse externe avec ces mots-cles. Le bouton de rafraichissement relance seulement le dernier jeu enregistre.', 'wp-rank-tracker'); ?></p>
                 <?php if ($serpComparisonRows === []) : ?>
-                    <p><?php esc_html_e('Aucune analyse de position n est encore disponible. Enregistre la configuration pour lancer la premiere analyse.', 'wp-rank-tracker'); ?></p>
+                    <p><?php esc_html_e('Aucune analyse de position n est encore disponible. Ajoute tes mots-cles dans Local, puis lance l analyse externe depuis DataForSEO.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
                     <table class="widefat striped">
                         <thead>
@@ -1523,7 +1588,8 @@ final class WP_Rank_Tracker_Admin {
 
         $siteLocale = function_exists('determine_locale') ? (string) determine_locale() : (string) get_locale();
         $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
-        $looksFrench = str_starts_with(strtolower($siteLocale), 'fr') || str_ends_with($host, '.fr');
+        $lowerLocale = strtolower($siteLocale);
+        $looksFrench = strpos($lowerLocale, 'fr') === 0 || substr($host, -3) === '.fr';
 
         if ($looksFrench && ($location === '' || ($location === 'United States' && ($language === '' || $language === 'English')))) {
             $location = 'France';
@@ -2117,6 +2183,7 @@ final class WP_Rank_Tracker_Admin {
         $opportunities = [];
         $targetDomain = $this->sanitize_domain((string) ($settings['target_domain'] ?? ''));
         $competitors = is_array($settings['competitors'] ?? null) ? array_map([$this, 'sanitize_domain'], $settings['competitors']) : [];
+        $trackedKeywords = is_array($settings['tracked_keywords'] ?? null) ? array_values(array_filter(array_map('strval', $settings['tracked_keywords']))) : [];
         $localByPath = [];
 
         foreach ($localPages as $page) {
@@ -2135,21 +2202,23 @@ final class WP_Rank_Tracker_Admin {
             $position = (float) ($pageRow['position'] ?? 0);
             $impressions = (int) ($pageRow['impressions'] ?? 0);
             $ctr = (float) ($pageRow['ctr'] ?? 0);
+            $isTrackedQuery = $this->query_matches_tracked_keywords($topQuery, $trackedKeywords);
+            $isBrandQuery = $this->is_brand_query($topQuery, $settings);
 
-            if ($position >= 4.0 && $position <= 15.0 && $impressions >= 20) {
+            if ($position >= 4.0 && $position <= 15.0 && $impressions >= 20 && $isTrackedQuery) {
                 $pageActions = $localPage !== null ? (array) ($localPage['actions'] ?? []) : [];
                 $opportunities[] = $this->make_opportunity(
-                    __('Page proche de la premiere page forte', 'wp-rank-tracker'),
+                    __('Mot-cle important proche d une meilleure zone de clics', 'wp-rank-tracker'),
                     $title !== '' ? $title : __('Page sans titre clair', 'wp-rank-tracker'),
-                    sprintf(__('Google voit deja cette page sur "%s" autour de la position %s. Elle est assez proche pour gagner des places avec une optimisation ciblee.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('cette requete', 'wp-rank-tracker'), $this->format_position($position)),
-                    sprintf(__('Dans WordPress, retravaille d abord le titre visible, le H1 et les 2 premiers H2 pour reprendre clairement "%s", puis ajoute un bloc de contenu qui repond mieux a cette requete.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('la requete cible', 'wp-rank-tracker')),
-                    __('Impact attendu : faire progresser une page deja visible vers une meilleure zone de clics.', 'wp-rank-tracker'),
+                    sprintf(__('Cette page est deja visible sur le mot-cle suivi "%s" autour de la position %s. C est un bon candidat car il fait partie de tes priorites SEO.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('cette requete', 'wp-rank-tracker'), $this->format_position($position)),
+                    sprintf(__('Dans WordPress, renforce la page autour de "%s" : title/H1 clairs, H2 utiles, exemples concrets, preuves, FAQ courte et liens internes depuis les pages proches.', 'wp-rank-tracker'), $topQuery !== '' ? $topQuery : __('la requete cible', 'wp-rank-tracker')),
+                    __('Impact attendu : faire progresser un mot-cle important deja visible vers une meilleure zone de clics.', 'wp-rank-tracker'),
                     'high',
                     $pageActions
                 );
             }
 
-            if ($impressions >= 50 && $ctr > 0 && $ctr < 0.03) {
+            if ($impressions >= 50 && $ctr > 0 && $ctr < 0.03 && (!$isBrandQuery || $isTrackedQuery)) {
                 $pageActions = $localPage !== null ? (array) ($localPage['actions'] ?? []) : [];
                 $opportunities[] = $this->make_opportunity(
                     __('Page vue par Google mais peu cliquée', 'wp-rank-tracker'),
@@ -2179,7 +2248,6 @@ final class WP_Rank_Tracker_Admin {
             );
         }
 
-        $trackedKeywords = is_array($settings['tracked_keywords'] ?? null) ? $settings['tracked_keywords'] : [];
         foreach ($trackedKeywords as $keyword) {
             $keyword = (string) $keyword;
             if ($keyword === '') {
@@ -2378,8 +2446,8 @@ final class WP_Rank_Tracker_Admin {
                 'class' => 'button-primary',
             ],
             [
-                'label' => __('Ouvrir DataForSEO', 'wp-rank-tracker'),
-                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_DATAFORSEO),
+                'label' => __('Configurer les mots-cles', 'wp-rank-tracker'),
+                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_LOCAL),
                 'class' => '',
             ],
         ];
@@ -2752,7 +2820,7 @@ final class WP_Rank_Tracker_Admin {
                 'title' => __('Ajouter les mots-cles suivis', 'wp-rank-tracker'),
                 'copy' => __('Ajoute les expressions que tu veux vraiment faire progresser pour obtenir un suivi utile.', 'wp-rank-tracker'),
                 'label' => __('Configurer les mots-cles', 'wp-rank-tracker'),
-                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_DATAFORSEO),
+                'url' => admin_url('admin.php?page=' . self::MENU_SLUG_LOCAL),
             ];
         }
 
@@ -3754,6 +3822,60 @@ final class WP_Rank_Tracker_Admin {
     }
 
     /**
+     * @param array<int, array<string, mixed>> $localPages
+     * @param string[] $trackedKeywords
+     * @return array<int, array{keyword:string,pages:int,tracked:bool}>
+     */
+    private function build_detected_keyword_suggestions(array $localPages, array $trackedKeywords): array {
+        $trackedMap = [];
+        foreach ($trackedKeywords as $keyword) {
+            $normalized = $this->normalize_keyword_for_match((string) $keyword);
+            if ($normalized !== '') {
+                $trackedMap[$normalized] = true;
+            }
+        }
+
+        $suggestions = [];
+        foreach ($localPages as $page) {
+            $keywords = [];
+            if (!empty($page['primary_keyword'])) {
+                $keywords[] = (string) $page['primary_keyword'];
+            }
+            if (is_array($page['secondary_keywords'] ?? null)) {
+                $keywords = array_merge($keywords, array_map('strval', $page['secondary_keywords']));
+            }
+
+            foreach ($keywords as $keyword) {
+                $keyword = trim($keyword);
+                $normalized = $this->normalize_keyword_for_match($keyword);
+                if ($normalized === '') {
+                    continue;
+                }
+
+                if (!isset($suggestions[$normalized])) {
+                    $suggestions[$normalized] = [
+                        'keyword' => $keyword,
+                        'pages' => 0,
+                        'tracked' => isset($trackedMap[$normalized]),
+                    ];
+                }
+
+                $suggestions[$normalized]['pages']++;
+            }
+        }
+
+        uasort($suggestions, static function (array $left, array $right): int {
+            if ((bool) $left['tracked'] !== (bool) $right['tracked']) {
+                return (bool) $left['tracked'] ? -1 : 1;
+            }
+
+            return (int) $right['pages'] <=> (int) $left['pages'];
+        });
+
+        return array_values($suggestions);
+    }
+
+    /**
      * @param array<string, mixed>|null $localMatch
      * @param array<string, mixed>|null $googleMatch
      */
@@ -3771,6 +3893,72 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return __('Sujet encore peu structure. Identifier ou creer la meilleure page cible avant le vrai comparatif concurrentiel.', 'wp-rank-tracker');
+    }
+
+    /**
+     * @param string[] $trackedKeywords
+     */
+    private function query_matches_tracked_keywords(string $query, array $trackedKeywords): bool {
+        $normalizedQuery = $this->normalize_keyword_for_match($query);
+        if ($normalizedQuery === '') {
+            return false;
+        }
+
+        foreach ($trackedKeywords as $keyword) {
+            $normalizedKeyword = $this->normalize_keyword_for_match((string) $keyword);
+            if ($normalizedKeyword === '') {
+                continue;
+            }
+
+            if (
+                $normalizedQuery === $normalizedKeyword
+                || strpos($normalizedQuery, $normalizedKeyword) !== false
+                || strpos($normalizedKeyword, $normalizedQuery) !== false
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     */
+    private function is_brand_query(string $query, array $settings): bool {
+        $normalizedQuery = $this->normalize_keyword_for_match($query);
+        if ($normalizedQuery === '') {
+            return false;
+        }
+
+        $brandCandidates = [];
+        $targetDomain = $this->sanitize_domain((string) ($settings['target_domain'] ?? ''));
+        if ($targetDomain !== '') {
+            $hostParts = explode('.', preg_replace('#^www\.#', '', $targetDomain));
+            $brandCandidates[] = (string) ($hostParts[0] ?? '');
+        }
+
+        $siteName = (string) get_bloginfo('name');
+        if ($siteName !== '') {
+            $brandCandidates[] = $siteName;
+        }
+
+        foreach ($brandCandidates as $candidate) {
+            $normalizedCandidate = $this->normalize_keyword_for_match($candidate);
+            if ($normalizedCandidate !== '' && ($normalizedQuery === $normalizedCandidate || strpos($normalizedQuery, $normalizedCandidate) !== false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalize_keyword_for_match(string $value): string {
+        $value = strtolower(remove_accents(wp_strip_all_tags($value)));
+        $value = preg_replace('/[^a-z0-9]+/', ' ', $value);
+        $value = preg_replace('/\s+/', ' ', (string) $value);
+
+        return trim((string) $value);
     }
 
     /**
