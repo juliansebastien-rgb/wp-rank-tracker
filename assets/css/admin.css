@@ -100,6 +100,112 @@
     border: 1px solid #d0d7de;
 }
 
+.wrt-status-good,
+.wrt-status-warning,
+.wrt-status-bad,
+.wrt-status-info,
+.wrt-status-muted {
+    gap: 6px;
+}
+
+.wrt-status-good::before,
+.wrt-status-warning::before,
+.wrt-status-bad::before,
+.wrt-status-info::before,
+.wrt-status-muted::before,
+.wrt-status-card-good::before,
+.wrt-status-card-warning::before,
+.wrt-status-card-bad::before,
+.wrt-status-card-info::before,
+.wrt-status-card-muted::before,
+.wrt-status-notice-warning p::before,
+.wrt-status-notice-bad p::before,
+.wrt-status-notice-info p::before {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    margin-right: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.wrt-status-good,
+.wrt-badges span.wrt-status-good {
+    background: #ecfdf5;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.wrt-status-good::before,
+.wrt-status-card-good::before {
+    content: "↑";
+    background: #16a34a;
+    color: #fff;
+}
+
+.wrt-status-warning,
+.wrt-badges span.wrt-status-warning {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+
+.wrt-status-warning::before,
+.wrt-status-card-warning::before,
+.wrt-status-notice-warning p::before {
+    content: "!";
+    background: #f97316;
+    color: #fff;
+}
+
+.wrt-status-bad,
+.wrt-badges span.wrt-status-bad {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+.wrt-status-bad::before,
+.wrt-status-card-bad::before,
+.wrt-status-notice-bad p::before {
+    content: "↓";
+    background: #dc2626;
+    color: #fff;
+}
+
+.wrt-status-info,
+.wrt-badges span.wrt-status-info {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+}
+
+.wrt-status-info::before,
+.wrt-status-card-info::before,
+.wrt-status-notice-info p::before {
+    content: "→";
+    background: #2563eb;
+    color: #fff;
+}
+
+.wrt-status-muted,
+.wrt-badges span.wrt-status-muted {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+.wrt-status-muted::before,
+.wrt-status-card-muted::before {
+    content: "→";
+    background: #64748b;
+    color: #fff;
+}
+
 .wrt-card {
     padding: 24px;
     border: 1px solid #d0d7de;
@@ -159,6 +265,67 @@
     border: 1px solid #d0d7de;
     border-radius: 14px;
     background: #f8fafc;
+}
+
+.wrt-metric-card {
+    position: relative;
+    padding-top: 42px;
+}
+
+.wrt-metric-card::before {
+    position: absolute;
+    top: 14px;
+    left: 18px;
+}
+
+.wrt-status-card-good {
+    background: #f0fdf4;
+    border-color: #86efac;
+}
+
+.wrt-status-card-good .wrt-metric-value,
+.wrt-status-card-good strong {
+    color: #166534;
+}
+
+.wrt-status-card-warning {
+    background: #fff7ed;
+    border-color: #fdba74;
+}
+
+.wrt-status-card-warning .wrt-metric-value,
+.wrt-status-card-warning strong {
+    color: #9a3412;
+}
+
+.wrt-status-card-bad {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
+.wrt-status-card-bad .wrt-metric-value,
+.wrt-status-card-bad strong {
+    color: #991b1b;
+}
+
+.wrt-status-card-info {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.wrt-status-card-info .wrt-metric-value,
+.wrt-status-card-info strong {
+    color: #1d4ed8;
+}
+
+.wrt-status-card-muted {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.wrt-status-card-muted .wrt-metric-value,
+.wrt-status-card-muted strong {
+    color: #475569;
 }
 
 .wrt-metric-label,
@@ -374,11 +541,18 @@
 }
 
 .wrt-local-stats div {
+    position: relative;
     min-width: 180px;
-    padding: 14px 16px;
+    padding: 14px 16px 14px 44px;
     border-radius: 14px;
     background: #f8fafc;
     border: 1px solid #d0d7de;
+}
+
+.wrt-local-stats div::before {
+    position: absolute;
+    top: 16px;
+    left: 16px;
 }
 
 .wrt-local-stats strong,

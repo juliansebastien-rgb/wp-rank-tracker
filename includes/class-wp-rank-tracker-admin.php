@@ -307,11 +307,11 @@ final class WP_Rank_Tracker_Admin {
                 <div class="wrt-summary">
                     <p><?php esc_html_e('Etape 1 : estimation locale des mots-cles cibles par page. Etape 2 : connexion Google Search Console pour comparer avec les requetes et positions vues par Google.', 'wp-rank-tracker'); ?></p>
                     <div class="wrt-badges">
-                        <span><?php printf(esc_html__('%d page(s) locales', 'wp-rank-tracker'), (int) $localAudit['page_count']); ?></span>
-                        <span><?php printf(esc_html__('%d page(s) Google', 'wp-rank-tracker'), (int) $summary['page_count']); ?></span>
-                        <span><?php echo esc_html($isConnected ? __('Google connecte', 'wp-rank-tracker') : __('Google non connecte', 'wp-rank-tracker')); ?></span>
-                        <span><?php echo esc_html($isCentralRegistered ? __('Service central actif', 'wp-rank-tracker') : __('Service central en attente', 'wp-rank-tracker')); ?></span>
-                        <span><?php echo esc_html($summary['last_fetch_label']); ?></span>
+                        <span class="<?php echo esc_attr($localAudit['page_count'] > 0 ? 'wrt-status-good' : 'wrt-status-warning'); ?>"><?php printf(esc_html__('%d page(s) locales', 'wp-rank-tracker'), (int) $localAudit['page_count']); ?></span>
+                        <span class="<?php echo esc_attr((int) $summary['page_count'] > 0 ? 'wrt-status-good' : 'wrt-status-warning'); ?>"><?php printf(esc_html__('%d page(s) Google', 'wp-rank-tracker'), (int) $summary['page_count']); ?></span>
+                        <span class="<?php echo esc_attr($isConnected ? 'wrt-status-good' : 'wrt-status-bad'); ?>"><?php echo esc_html($isConnected ? __('Google connecte', 'wp-rank-tracker') : __('Google non connecte', 'wp-rank-tracker')); ?></span>
+                        <span class="<?php echo esc_attr($isCentralRegistered ? 'wrt-status-good' : 'wrt-status-warning'); ?>"><?php echo esc_html($isCentralRegistered ? __('Service central actif', 'wp-rank-tracker') : __('Service central en attente', 'wp-rank-tracker')); ?></span>
+                        <span class="<?php echo esc_attr($summary['fetched_at'] !== '' ? 'wrt-status-good' : 'wrt-status-muted'); ?>"><?php echo esc_html($summary['last_fetch_label']); ?></span>
                     </div>
                 </div>
             </div>
@@ -330,7 +330,7 @@ final class WP_Rank_Tracker_Admin {
                 </div>
                 <div class="wrt-dashboard-grid">
                     <?php foreach ($dashboardMetrics as $metric) : ?>
-                        <article class="wrt-metric-card">
+                        <article class="wrt-metric-card wrt-status-card-<?php echo esc_attr((string) ($metric['tone'] ?? 'info')); ?>">
                             <span class="wrt-metric-label"><?php echo esc_html($metric['label']); ?></span>
                             <strong class="wrt-metric-value"><?php echo esc_html($metric['value']); ?></strong>
                             <span class="wrt-metric-copy"><?php echo esc_html($metric['copy']); ?></span>
@@ -502,8 +502,8 @@ final class WP_Rank_Tracker_Admin {
                 <h2><?php esc_html_e('Lecture locale de tes pages', 'wp-rank-tracker'); ?></h2>
                 <p><?php esc_html_e('Le plugin commence par analyser tes pages telles qu elles sont construites dans WordPress. Il repere pour chaque page le sujet principal qu elle semble cibler, avant de comparer ensuite cette lecture avec les donnees reelles de Google.', 'wp-rank-tracker'); ?></p>
                 <div class="wrt-local-stats">
-                    <div><strong><?php echo esc_html((string) $localAudit['page_count']); ?></strong><span><?php esc_html_e('pages analysees localement', 'wp-rank-tracker'); ?></span></div>
-                    <div><strong><?php echo esc_html((string) $localAudit['with_focus_count']); ?></strong><span><?php esc_html_e('pages avec mot-cle principal detecte', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr($localAudit['page_count'] > 0 ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html((string) $localAudit['page_count']); ?></strong><span><?php esc_html_e('pages analysees localement', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr($localAudit['with_focus_count'] > 0 ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html((string) $localAudit['with_focus_count']); ?></strong><span><?php esc_html_e('pages avec mot-cle principal detecte', 'wp-rank-tracker'); ?></span></div>
                 </div>
             </section>
 
@@ -572,10 +572,10 @@ final class WP_Rank_Tracker_Admin {
                 <h2><?php esc_html_e('Google Search Console', 'wp-rank-tracker'); ?></h2>
                 <p><?php esc_html_e('Connecte Google, choisis la propriete Search Console a analyser, puis enregistre. L import se lance automatiquement et te permettra de comparer ta lecture locale avec la vision reelle de Google.', 'wp-rank-tracker'); ?></p>
                 <div class="wrt-local-stats">
-                    <div><strong><?php echo esc_html($isConnected ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('Google connecte', 'wp-rank-tracker'); ?></span></div>
-                    <div><strong><?php echo esc_html($selectedProperty !== '' ? $selectedProperty : __('Aucune', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('propriete actuelle', 'wp-rank-tracker'); ?></span></div>
-                    <div><strong><?php echo esc_html((string) count($googleProperties)); ?></strong><span><?php esc_html_e('proprietes detectees', 'wp-rank-tracker'); ?></span></div>
-                    <div><strong><?php echo esc_html($previousReport['fetched_at'] !== '' ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('historique disponible', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr($isConnected ? 'wrt-status-card-good' : 'wrt-status-card-bad'); ?>"><strong><?php echo esc_html($isConnected ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('Google connecte', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr($selectedProperty !== '' ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html($selectedProperty !== '' ? $selectedProperty : __('Aucune', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('propriete actuelle', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr(count($googleProperties) > 0 ? 'wrt-status-card-good' : 'wrt-status-card-muted'); ?>"><strong><?php echo esc_html((string) count($googleProperties)); ?></strong><span><?php esc_html_e('proprietes detectees', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr($previousReport['fetched_at'] !== '' ? 'wrt-status-card-good' : 'wrt-status-card-muted'); ?>"><strong><?php echo esc_html($previousReport['fetched_at'] !== '' ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('historique disponible', 'wp-rank-tracker'); ?></span></div>
                 </div>
                 <div class="wrt-inline-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -968,8 +968,8 @@ final class WP_Rank_Tracker_Admin {
                     <div class="wrt-market-intro">
                         <p><?php esc_html_e('Cette vue ne pretend pas encore connaitre les positions exactes des concurrents. Elle prepare la lecture strategique : mots-cles cibles, pages locales associees, signaux Google existants et liste des concurrents a comparer en phase 3.', 'wp-rank-tracker'); ?></p>
                         <div class="wrt-badges">
-                            <span><?php printf(esc_html__('%d mot(s)-cle(s) surveille(s)', 'wp-rank-tracker'), count($settings['tracked_keywords'])); ?></span>
-                            <span><?php printf(esc_html__('%d concurrent(s)', 'wp-rank-tracker'), count($settings['competitors'])); ?></span>
+                            <span class="<?php echo esc_attr(count($settings['tracked_keywords']) > 0 ? 'wrt-status-good' : 'wrt-status-warning'); ?>"><?php printf(esc_html__('%d mot(s)-cle(s) surveille(s)', 'wp-rank-tracker'), count($settings['tracked_keywords'])); ?></span>
+                            <span class="<?php echo esc_attr(count($settings['competitors']) > 0 ? 'wrt-status-good' : 'wrt-status-warning'); ?>"><?php printf(esc_html__('%d concurrent(s)', 'wp-rank-tracker'), count($settings['competitors'])); ?></span>
                         </div>
                     </div>
                     <table class="widefat striped">
@@ -1030,13 +1030,13 @@ final class WP_Rank_Tracker_Admin {
                     $lastImportedKeywords = is_array($serpReport['keywords'] ?? null) ? array_values($serpReport['keywords']) : [];
                     if ($currentTrackedKeywords !== [] && $lastImportedKeywords !== [] && $currentTrackedKeywords !== $lastImportedKeywords) :
                     ?>
-                        <div class="notice notice-warning inline">
+                    <div class="notice notice-warning inline wrt-status-notice-warning">
                             <p><?php esc_html_e('Les mots-cles affiches ci-dessous ne correspondent pas encore aux mots-cles actuellement saisis dans la configuration. Clique sur "Enregistrer et analyser maintenant" pour relancer l import avec les nouvelles valeurs.', 'wp-rank-tracker'); ?></p>
                         </div>
                     <?php endif; ?>
                 <?php endif; ?>
                 <?php if (!empty($centralSerpStatus['available'])) : ?>
-                    <div class="notice notice-info inline">
+                    <div class="notice notice-info inline wrt-status-notice-info">
                         <p>
                             <?php
                             echo esc_html(
@@ -1052,7 +1052,7 @@ final class WP_Rank_Tracker_Admin {
                     </div>
                 <?php endif; ?>
                 <?php if ($serpLastError !== '') : ?>
-                    <div class="notice notice-error inline">
+                    <div class="notice notice-error inline wrt-status-notice-bad">
                         <p>
                             <?php
                             echo esc_html(
@@ -1066,7 +1066,7 @@ final class WP_Rank_Tracker_Admin {
                     </div>
                 <?php endif; ?>
                 <?php if (!empty($serpRequestDebug['attempted_at'])) : ?>
-                    <div class="notice notice-info inline">
+                    <div class="notice notice-info inline wrt-status-notice-info">
                         <p>
                             <?php
                             echo esc_html(
@@ -1081,9 +1081,9 @@ final class WP_Rank_Tracker_Admin {
                     </div>
                 <?php endif; ?>
                 <div class="wrt-local-stats">
-                    <div><strong><?php echo esc_html((string) count($settings['tracked_keywords'])); ?></strong><span><?php esc_html_e('mots-cles suivis', 'wp-rank-tracker'); ?></span></div>
-                    <div><strong><?php echo esc_html((string) count($settings['competitors'])); ?></strong><span><?php esc_html_e('concurrents compares', 'wp-rank-tracker'); ?></span></div>
-                    <div><strong><?php echo esc_html($serpPreviousReport['fetched_at'] !== '' ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('historique disponible', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr(count($settings['tracked_keywords']) > 0 ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html((string) count($settings['tracked_keywords'])); ?></strong><span><?php esc_html_e('mots-cles suivis', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr(count($settings['competitors']) > 0 ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html((string) count($settings['competitors'])); ?></strong><span><?php esc_html_e('concurrents compares', 'wp-rank-tracker'); ?></span></div>
+                    <div class="<?php echo esc_attr($serpPreviousReport['fetched_at'] !== '' ? 'wrt-status-card-good' : 'wrt-status-card-muted'); ?>"><strong><?php echo esc_html($serpPreviousReport['fetched_at'] !== '' ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('historique disponible', 'wp-rank-tracker'); ?></span></div>
                 </div>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wp_rank_tracker_import_serp" />
@@ -1942,7 +1942,7 @@ final class WP_Rank_Tracker_Admin {
     private function build_declining_pages_rows(array $googleTrendRows): array {
         $rows = array_values(array_filter(
             $googleTrendRows,
-            static fn(array $row): bool => str_contains((string) ($row['trend'] ?? ''), 'wrt-delta-down')
+            static fn(array $row): bool => strpos((string) ($row['trend'] ?? ''), 'wrt-delta-down') !== false
         ));
 
         $rows = array_slice($rows, 0, 5);
@@ -2160,33 +2160,38 @@ final class WP_Rank_Tracker_Admin {
      * @param array<int, array<string, mixed>> $priorityOpportunities
      * @param array<int, array<string, mixed>> $googleTrendRows
      * @param array<int, array<string, string>> $serpComparisonRows
-     * @return array<int, array{label:string,value:string,copy:string}>
+     * @return array<int, array{label:string,value:string,copy:string,tone:string}>
      */
     private function build_dashboard_metrics(array $localAudit, array $summary, array $priorityOpportunities, array $googleTrendRows, array $serpComparisonRows): array {
         $highPriorityCount = count(array_filter($priorityOpportunities, static fn(array $item): bool => (string) ($item['priority'] ?? '') === 'high'));
-        $downPagesCount = count(array_filter($googleTrendRows, static fn(array $item): bool => str_contains((string) ($item['trend'] ?? ''), 'wrt-delta-down')));
-        $serpDetectedCount = count(array_filter($serpComparisonRows, static fn(array $item): bool => !str_contains((string) ($item['target_rank'] ?? ''), 'Non detecte')));
+        $downPagesCount = count(array_filter($googleTrendRows, static fn(array $item): bool => strpos((string) ($item['trend'] ?? ''), 'wrt-delta-down') !== false));
+        $serpDetectedCount = count(array_filter($serpComparisonRows, static fn(array $item): bool => strpos((string) ($item['target_rank'] ?? ''), 'Non detecte') === false));
+        $queryCount = (int) ($summary['query_count'] ?? 0);
 
         return [
             [
                 'label' => __('Priorites hautes', 'wp-rank-tracker'),
                 'value' => (string) $highPriorityCount,
                 'copy' => __('Actions a traiter d abord pour esperer un impact SEO utile.', 'wp-rank-tracker'),
+                'tone' => $highPriorityCount > 0 ? 'bad' : 'good',
             ],
             [
                 'label' => __('Pages en baisse', 'wp-rank-tracker'),
                 'value' => (string) $downPagesCount,
                 'copy' => __('Pages Google qui ont perdu du terrain ou des clics depuis le dernier import.', 'wp-rank-tracker'),
+                'tone' => $downPagesCount > 0 ? 'bad' : 'good',
             ],
             [
                 'label' => __('Requetes Google', 'wp-rank-tracker'),
-                'value' => (string) ($summary['query_count'] ?? 0),
+                'value' => (string) $queryCount,
                 'copy' => __('Nombre de requetes actuellement visibles dans Search Console.', 'wp-rank-tracker'),
+                'tone' => $queryCount > 0 ? 'good' : 'warning',
             ],
             [
                 'label' => __('Mots-cles suivis detectes', 'wp-rank-tracker'),
                 'value' => (string) $serpDetectedCount,
                 'copy' => __('Mots-cles suivis pour lesquels ton domaine ressort deja dans les SERP externes.', 'wp-rank-tracker'),
+                'tone' => $serpDetectedCount > 0 ? 'good' : 'warning',
             ],
         ];
     }
@@ -2225,7 +2230,7 @@ final class WP_Rank_Tracker_Admin {
         }
 
         foreach ($googleTrendRows as $row) {
-            if (str_contains((string) ($row['trend'] ?? ''), 'wrt-delta-down')) {
+            if (strpos((string) ($row['trend'] ?? ''), 'wrt-delta-down') !== false) {
                 $alerts[] = [
                     'priority' => 'medium',
                     'title' => __('Une page perd du terrain dans Google', 'wp-rank-tracker'),
@@ -2236,7 +2241,7 @@ final class WP_Rank_Tracker_Admin {
         }
 
         foreach ($serpComparisonRows as $row) {
-            if (str_contains((string) ($row['note'] ?? ''), 'concurrent')) {
+            if (strpos((string) ($row['note'] ?? ''), 'concurrent') !== false) {
                 $alerts[] = [
                     'priority' => 'medium',
                     'title' => __('Un concurrent ressort devant toi', 'wp-rank-tracker'),
@@ -2355,10 +2360,10 @@ final class WP_Rank_Tracker_Admin {
      * @return array<int, array{label:string,value:string}>
      */
     private function build_daily_summary(array $priorityOpportunities, array $googleTrendRows, array $serpComparisonRows): array {
-        $upCount = count(array_filter($googleTrendRows, static fn(array $item): bool => str_contains((string) ($item['trend'] ?? ''), 'wrt-delta-up')));
-        $downCount = count(array_filter($googleTrendRows, static fn(array $item): bool => str_contains((string) ($item['trend'] ?? ''), 'wrt-delta-down')));
+        $upCount = count(array_filter($googleTrendRows, static fn(array $item): bool => strpos((string) ($item['trend'] ?? ''), 'wrt-delta-up') !== false));
+        $downCount = count(array_filter($googleTrendRows, static fn(array $item): bool => strpos((string) ($item['trend'] ?? ''), 'wrt-delta-down') !== false));
         $highPriorityCount = count(array_filter($priorityOpportunities, static fn(array $item): bool => (string) ($item['priority'] ?? '') === 'high'));
-        $competitorLeadCount = count(array_filter($serpComparisonRows, static fn(array $item): bool => str_contains((string) ($item['note'] ?? ''), 'concurrent')));
+        $competitorLeadCount = count(array_filter($serpComparisonRows, static fn(array $item): bool => strpos((string) ($item['note'] ?? ''), 'concurrent') !== false));
 
         return [
             [
@@ -2438,7 +2443,7 @@ final class WP_Rank_Tracker_Admin {
 
         foreach ($googleTrendRows as $row) {
             $trend = (string) ($row['trend'] ?? '');
-            if (!str_contains($trend, 'wrt-delta-down')) {
+            if (strpos($trend, 'wrt-delta-down') === false) {
                 continue;
             }
 
@@ -3232,9 +3237,9 @@ final class WP_Rank_Tracker_Admin {
                     continue;
                 }
 
-                if (str_contains($key, 'title') || str_contains($key, 'heading')) {
+                if (strpos($key, 'title') !== false || strpos($key, 'heading') !== false) {
                     $fragments[] = '<h2>' . esc_html($text) . '</h2>';
-                } elseif (str_contains($key, 'text') || str_contains($key, 'editor') || str_contains($key, 'content') || str_contains($key, 'description')) {
+                } elseif (strpos($key, 'text') !== false || strpos($key, 'editor') !== false || strpos($key, 'content') !== false || strpos($key, 'description') !== false) {
                     $fragments[] = '<p>' . esc_html($text) . '</p>';
                 }
             } elseif (is_array($value)) {
