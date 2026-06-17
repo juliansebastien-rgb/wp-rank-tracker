@@ -3,8 +3,9 @@
  * Plugin Name: WP Rank Tracker
  * Plugin URI: https://github.com/juliansebastien-rgb/wp-rank-tracker
  * Description: Suit les mots-cles SEO de votre site WordPress et prepare le suivi de position sur Google et d'autres moteurs.
- * Version: 0.1.36
+ * Version: 0.1.37
  * Author: Le Labo d'Azertaf
+ * Author URI: https://azertaf.com/le-labo/
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * License: GPL-2.0-or-later
@@ -17,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('WP_RANK_TRACKER_VERSION', '0.1.36');
+define('WP_RANK_TRACKER_VERSION', '0.1.37');
 define('WP_RANK_TRACKER_FILE', __FILE__);
 define('WP_RANK_TRACKER_DIR', plugin_dir_path(__FILE__));
 define('WP_RANK_TRACKER_URL', plugin_dir_url(__FILE__));
@@ -28,7 +29,7 @@ require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-central-servi
 require_once WP_RANK_TRACKER_DIR . 'includes/class-wp-rank-tracker-admin.php';
 
 final class WP_Rank_Tracker {
-    private const VERSION = '0.1.36';
+    private const VERSION = '0.1.37';
     private const DAILY_GOOGLE_EVENT = 'wp_rank_tracker_refresh_google_daily';
     private const DAILY_SERP_EVENT = 'wp_rank_tracker_refresh_serp_daily';
     private const TRANSIENT_PREFIX = 'wp_rank_tracker_';
@@ -132,8 +133,8 @@ final class WP_Rank_Tracker {
             'name' => 'WP Rank Tracker',
             'slug' => 'wp-rank-tracker',
             'version' => $release['version'],
-            'author' => '<a href="https://github.com/juliansebastien-rgb">Le Labo d&#039;Azertaf</a>',
-            'author_profile' => 'https://github.com/juliansebastien-rgb',
+            'author' => '<a href="https://azertaf.com/le-labo/">Le Labo d&#039;Azertaf</a>',
+            'author_profile' => 'https://azertaf.com/le-labo/',
             'homepage' => self::GITHUB_REPOSITORY_URL,
             'requires' => '6.0',
             'requires_php' => '7.4',
