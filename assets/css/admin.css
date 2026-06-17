@@ -584,6 +584,14 @@
     font-weight: 700;
 }
 
+.wrt-subsection-title {
+    margin: 24px 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dbe4ee;
+    color: #0f172a;
+    font-size: 16px;
+}
+
 .wrt-keyword-suggestions {
     display: flex;
     flex-wrap: wrap;

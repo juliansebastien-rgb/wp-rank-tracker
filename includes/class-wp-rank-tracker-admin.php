@@ -315,6 +315,7 @@ final class WP_Rank_Tracker_Admin {
             is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [],
             $this->resolve_current_page_keyword_targets($settings, is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [])
         );
+        $pageKeywordGroups = $this->group_page_keyword_rows_by_type($pageKeywordRows);
         $dailySummary = $this->build_daily_summary($priorityOpportunities, $googleTrendRows, $serpComparisonRows);
         $nextActions = $this->build_next_actions($settings, $isConnected, $selectedProperty, $priorityOpportunities);
         $alertPages = $this->build_alert_pages($googleTrendRows);
@@ -603,10 +604,15 @@ final class WP_Rank_Tracker_Admin {
                     <?php wp_nonce_field(self::NONCE_ACTION_SETTINGS); ?>
                     <input type="hidden" name="settings_section" value="local_page_keywords" />
                     <input type="hidden" name="return_page" value="<?php echo esc_attr($this->get_current_page_slug()); ?>" />
+                    <?php foreach ($pageKeywordGroups as $group) : ?>
+                        <?php if ($group['rows'] === []) : ?>
+                            <?php continue; ?>
+                        <?php endif; ?>
+                    <h3 class="wrt-subsection-title"><?php echo esc_html($group['label']); ?></h3>
                     <table class="widefat striped">
                         <thead>
                             <tr>
-                                <th><?php esc_html_e('Page / article', 'wp-rank-tracker'); ?></th>
+                                <th><?php echo esc_html($group['item_label']); ?></th>
                                 <th><?php esc_html_e('Mot-cle principal', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Mots-cles secondaires', 'wp-rank-tracker'); ?></th>
                                 <th><?php esc_html_e('Alignement local', 'wp-rank-tracker'); ?></th>
@@ -614,11 +620,11 @@ final class WP_Rank_Tracker_Admin {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($pageKeywordRows as $row) : ?>
+                            <?php foreach ($group['rows'] as $row) : ?>
                                 <tr>
                                     <td>
                                         <strong><?php echo esc_html($row['page']['title']); ?></strong><br />
-                                        <span class="description"><?php echo esc_html($row['page']['type_label'] . ' - ' . $row['page']['url']); ?></span>
+                                        <span class="description"><?php echo esc_html($row['page']['url']); ?></span>
                                         <div class="wrt-row-actions">
                                             <?php foreach ($row['page']['actions'] as $action) : ?>
                                                 <a class="button button-small" href="<?php echo esc_url($action['url']); ?>">
@@ -663,6 +669,7 @@ final class WP_Rank_Tracker_Admin {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php endforeach; ?>
                     <?php submit_button(__('Enregistrer les mots-cles des pages', 'wp-rank-tracker')); ?>
                     </form>
                 <?php endif; ?>
@@ -3314,6 +3321,7 @@ final class WP_Rank_Tracker_Admin {
             'post_id' => (int) $post->ID,
             'title' => $title !== '' ? $title : __('Sans titre', 'wp-rank-tracker'),
             'url' => is_string($url) ? $url : '',
+            'type' => (string) $post->post_type,
             'type_label' => $post->post_type === 'page' ? __('Page', 'wp-rank-tracker') : __('Article', 'wp-rank-tracker'),
             'primary_keyword' => $primaryKeyword,
             'secondary_keywords' => $secondaryKeywords !== [] ? $secondaryKeywords : [__('Aucun terme fort detecte', 'wp-rank-tracker')],
@@ -4100,6 +4108,32 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array{label:string,item_label:string,rows:array<int, array<string, mixed>>}>
+     */
+    private function group_page_keyword_rows_by_type(array $rows): array {
+        $groups = [
+            'page' => [
+                'label' => __('Pages', 'wp-rank-tracker'),
+                'item_label' => __('Page', 'wp-rank-tracker'),
+                'rows' => [],
+            ],
+            'post' => [
+                'label' => __('Articles', 'wp-rank-tracker'),
+                'item_label' => __('Article', 'wp-rank-tracker'),
+                'rows' => [],
+            ],
+        ];
+
+        foreach ($rows as $row) {
+            $groupKey = (string) ($row['page']['type'] ?? '') === 'post' ? 'post' : 'page';
+            $groups[$groupKey]['rows'][] = $row;
+        }
+
+        return array_values($groups);
     }
 
     /**
