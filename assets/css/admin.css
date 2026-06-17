@@ -616,6 +616,39 @@
     margin: 0;
 }
 
+.wrt-selected-secondary-keywords {
+    margin-top: 10px;
+}
+
+.wrt-selected-secondary-keyword input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.wrt-keyword-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin: 0 -3px 0 2px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.wrt-keyword-remove:hover,
+.wrt-keyword-remove:focus {
+    background: #fecaca;
+    color: #991b1b;
+}
+
 .wrt-keyword-pill small {
     color: #64748b;
     font-weight: 600;

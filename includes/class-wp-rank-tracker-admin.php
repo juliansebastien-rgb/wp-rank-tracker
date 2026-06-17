@@ -116,6 +116,14 @@ final class WP_Rank_Tracker_Admin {
             [],
             WP_RANK_TRACKER_VERSION
         );
+
+        wp_enqueue_script(
+            'wp-rank-tracker-admin',
+            WP_RANK_TRACKER_URL . 'assets/js/admin.js',
+            [],
+            WP_RANK_TRACKER_VERSION,
+            true
+        );
     }
 
     public function handle_save_settings(): void {
@@ -645,16 +653,25 @@ final class WP_Rank_Tracker_Admin {
                                         <p class="description"><?php echo esc_html($row['detected_primary']); ?></p>
                                     </td>
                                     <td>
-                                        <div class="wrt-keyword-suggestions">
-                                            <?php foreach ($settings['tracked_keywords'] as $keywordOption) : ?>
-                                                <?php if ($keywordOption === $row['primary_keyword']) : ?>
-                                                    <?php continue; ?>
-                                                <?php endif; ?>
-                                                <label class="wrt-keyword-pill">
-                                                    <input type="checkbox" name="page_keyword_targets[<?php echo esc_attr((string) $row['post_id']); ?>][secondary][]" value="<?php echo esc_attr($keywordOption); ?>" <?php checked(in_array($keywordOption, $row['secondary_keywords'], true)); ?> />
-                                                    <?php echo esc_html($keywordOption); ?>
-                                                </label>
-                                            <?php endforeach; ?>
+                                        <div class="wrt-secondary-keyword-picker" data-post-id="<?php echo esc_attr((string) $row['post_id']); ?>">
+                                            <select class="regular-text wrt-secondary-keyword-select">
+                                                <option value=""><?php esc_html_e('Ajouter un mot-cle secondaire', 'wp-rank-tracker'); ?></option>
+                                                <?php foreach ($settings['tracked_keywords'] as $keywordOption) : ?>
+                                                    <?php if ($keywordOption === $row['primary_keyword']) : ?>
+                                                        <?php continue; ?>
+                                                    <?php endif; ?>
+                                                    <option value="<?php echo esc_attr($keywordOption); ?>"><?php echo esc_html($keywordOption); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <div class="wrt-keyword-suggestions wrt-selected-secondary-keywords">
+                                                <?php foreach ($row['secondary_keywords'] as $keywordOption) : ?>
+                                                    <label class="wrt-keyword-pill wrt-selected-secondary-keyword">
+                                                        <input type="checkbox" name="page_keyword_targets[<?php echo esc_attr((string) $row['post_id']); ?>][secondary][]" value="<?php echo esc_attr($keywordOption); ?>" checked="checked" />
+                                                        <span><?php echo esc_html($keywordOption); ?></span>
+                                                        <button type="button" class="wrt-keyword-remove" aria-label="<?php echo esc_attr(sprintf(__('Retirer %s', 'wp-rank-tracker'), $keywordOption)); ?>">x</button>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                            </div>
                                         </div>
                                         <p class="description"><?php echo esc_html($row['detected_secondary']); ?></p>
                                     </td>
