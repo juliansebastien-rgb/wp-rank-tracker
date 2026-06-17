@@ -998,8 +998,8 @@ final class WP_Rank_Tracker_Admin {
             </section>
 
             <section class="wrt-card wrt-table-card">
-                <h2><?php esc_html_e('Phase 3 SERP externe', 'wp-rank-tracker'); ?></h2>
-                <p><?php esc_html_e('Ce module interroge DataForSEO sur Google et Bing pour les mots-cles surveilles, puis cherche ton domaine et les domaines concurrents dans les SERP retournees.', 'wp-rank-tracker'); ?></p>
+                <h2><?php esc_html_e('Suivi des positions concurrentielles', 'wp-rank-tracker'); ?></h2>
+                <p><?php esc_html_e('Ce module suit tes mots-cles sur Google et Bing, puis compare la visibilite de ton site avec celle de tes concurrents.', 'wp-rank-tracker'); ?></p>
                 <?php if ($serpReport['fetched_at'] !== '') : ?>
                     <p class="description">
                         <?php
@@ -1041,8 +1041,8 @@ final class WP_Rank_Tracker_Admin {
                             <?php
                             echo esc_html(
                                 sprintf(
-                                    __('Serveur central : dernier snapshot recu le %1$s, %2$d ligne(s), mots-cles recus : %3$s', 'wp-rank-tracker'),
-                                    (string) ($centralSerpStatus['fetched_at'] ?: __('jamais', 'wp-rank-tracker')),
+                                    __('Derniere analyse disponible : %1$s. %2$d resultat(s) analyse(s). Mots-cles traites : %3$s', 'wp-rank-tracker'),
+                                    (string) ($centralSerpStatus['fetched_at'] ?: __('aucune analyse pour le moment', 'wp-rank-tracker')),
                                     (int) ($centralSerpStatus['rows_count'] ?? 0),
                                     !empty($centralSerpStatus['keywords']) ? implode(', ', array_map('strval', (array) $centralSerpStatus['keywords'])) : __('aucun', 'wp-rank-tracker')
                                 )
@@ -1057,8 +1057,8 @@ final class WP_Rank_Tracker_Admin {
                             <?php
                             echo esc_html(
                                 sprintf(
-                                    __('Derniere erreur DataForSEO : %s', 'wp-rank-tracker'),
-                                    $serpLastError
+                                    __('Le suivi des positions n a pas pu etre actualise : %s', 'wp-rank-tracker'),
+                                    $this->format_serp_public_error($serpLastError)
                                 )
                             );
                             ?>
@@ -1071,7 +1071,7 @@ final class WP_Rank_Tracker_Admin {
                             <?php
                             echo esc_html(
                                 sprintf(
-                                    __('WordPress a tente d envoyer le %1$s : %2$s', 'wp-rank-tracker'),
+                                    __('Derniere demande d analyse : %1$s. Mots-cles demandes : %2$s', 'wp-rank-tracker'),
                                     (string) $serpRequestDebug['attempted_at'],
                                     !empty($serpRequestDebug['keywords']) ? implode(', ', array_map('strval', (array) $serpRequestDebug['keywords'])) : __('aucun mot-cle', 'wp-rank-tracker')
                                 )
@@ -1093,7 +1093,7 @@ final class WP_Rank_Tracker_Admin {
                 </form>
                 <p class="description"><?php esc_html_e('Si tu viens de modifier la liste au-dessus, utilise d abord "Enregistrer et analyser maintenant". Le bouton de rafraichissement relance seulement le dernier jeu de mots-cles enregistre.', 'wp-rank-tracker'); ?></p>
                 <?php if ($serpComparisonRows === []) : ?>
-                    <p><?php esc_html_e('Aucune donnee SERP externe importee pour le moment.', 'wp-rank-tracker'); ?></p>
+                    <p><?php esc_html_e('Aucune analyse de position n est encore disponible. Enregistre la configuration pour lancer la premiere analyse.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
                     <table class="widefat striped">
                         <thead>
@@ -2574,11 +2574,30 @@ final class WP_Rank_Tracker_Admin {
     }
 
     private function store_serp_last_error(string $message): void {
-        update_option(self::SERP_LAST_ERROR_OPTION_KEY, sanitize_text_field($message), false);
+        update_option(self::SERP_LAST_ERROR_OPTION_KEY, sanitize_text_field($this->format_serp_public_error($message)), false);
     }
 
     private function clear_serp_last_error(): void {
         delete_option(self::SERP_LAST_ERROR_OPTION_KEY);
+    }
+
+    private function format_serp_public_error(string $message): string {
+        $message = trim(wp_strip_all_tags($message));
+
+        if ($message === '') {
+            return __('le service de suivi est temporairement indisponible. Reessaie dans quelques minutes.', 'wp-rank-tracker');
+        }
+
+        $lowerMessage = strtolower($message);
+        if (strpos($message, '40200') !== false || strpos($lowerMessage, 'payment required') !== false || strpos($lowerMessage, 'credit') !== false || strpos($lowerMessage, 'facturation') !== false) {
+            return __('le service de suivi des positions est temporairement indisponible. Le compte de collecte doit etre recharge ou reactive avant de lancer une nouvelle analyse.', 'wp-rank-tracker');
+        }
+
+        if (strpos($lowerMessage, 'dataforseo') !== false || strpos($message, '{') !== false || strpos($message, 'status_code') !== false) {
+            return __('le service de suivi des positions n a pas repondu correctement. Reessaie plus tard ou contacte le support si le probleme persiste.', 'wp-rank-tracker');
+        }
+
+        return $message;
     }
 
     /**
@@ -3687,6 +3706,9 @@ final class WP_Rank_Tracker_Admin {
     private function render_notice(): void {
         $notice = sanitize_key((string) ($_GET['wrt_notice'] ?? ''));
         $message = isset($_GET['wrt_message']) ? sanitize_text_field(wp_unslash((string) $_GET['wrt_message'])) : '';
+        if ($notice === 'serp-error') {
+            $message = $this->format_serp_public_error($message);
+        }
 
         if ($notice === '') {
             return;
