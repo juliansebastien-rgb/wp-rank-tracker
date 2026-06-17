@@ -1160,8 +1160,7 @@ final class WP_Rank_Tracker_Admin {
                 $this->redirect_with_notice('connect-error', __('Le service central n a pas retourne d URL OAuth.', 'wp-rank-tracker'));
             }
 
-            wp_safe_redirect($authUrl);
-            exit;
+            $this->redirect_to_google_oauth($authUrl);
         }
 
         $this->redirect_with_notice('connect-error', __('Le service central n est pas pret pour ce site. Recharge la page puis recommence.', 'wp-rank-tracker'));
@@ -1176,8 +1175,7 @@ final class WP_Rank_Tracker_Admin {
             $this->redirect_with_notice('connect-error', $authUrl->get_error_message());
         }
 
-        wp_safe_redirect($authUrl);
-        exit;
+        $this->redirect_to_google_oauth($authUrl);
     }
 
     public function handle_google_oauth_callback(): void {
@@ -3729,6 +3727,18 @@ final class WP_Rank_Tracker_Admin {
         }
 
         wp_safe_redirect(add_query_arg($args, $this->get_admin_page_url()));
+        exit;
+    }
+
+    private function redirect_to_google_oauth(string $authUrl): void {
+        $host = strtolower((string) wp_parse_url($authUrl, PHP_URL_HOST));
+        $scheme = strtolower((string) wp_parse_url($authUrl, PHP_URL_SCHEME));
+
+        if ($scheme !== 'https' || $host !== 'accounts.google.com') {
+            $this->redirect_with_notice('connect-error', __('URL OAuth Google invalide.', 'wp-rank-tracker'));
+        }
+
+        wp_redirect(esc_url_raw($authUrl));
         exit;
     }
 
