@@ -291,6 +291,7 @@ final class WP_Rank_Tracker_Admin {
         $nextActions = $this->build_next_actions($settings, $isConnected, $selectedProperty, $priorityOpportunities);
         $alertPages = $this->build_alert_pages($googleTrendRows);
         $quickWins = $this->build_quick_wins($priorityOpportunities);
+        $googlePerformanceChart = $this->build_google_performance_chart($report, $this->get_google_report_history());
         ?>
         <div class="wrap wrt-admin">
             <h1><?php esc_html_e('WP Rank Tracker', 'wp-rank-tracker'); ?></h1>
@@ -576,6 +577,43 @@ final class WP_Rank_Tracker_Admin {
                     <div class="<?php echo esc_attr($selectedProperty !== '' ? 'wrt-status-card-good' : 'wrt-status-card-warning'); ?>"><strong><?php echo esc_html($selectedProperty !== '' ? $selectedProperty : __('Aucune', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('propriete actuelle', 'wp-rank-tracker'); ?></span></div>
                     <div class="<?php echo esc_attr(count($googleProperties) > 0 ? 'wrt-status-card-good' : 'wrt-status-card-muted'); ?>"><strong><?php echo esc_html((string) count($googleProperties)); ?></strong><span><?php esc_html_e('proprietes detectees', 'wp-rank-tracker'); ?></span></div>
                     <div class="<?php echo esc_attr($previousReport['fetched_at'] !== '' ? 'wrt-status-card-good' : 'wrt-status-card-muted'); ?>"><strong><?php echo esc_html($previousReport['fetched_at'] !== '' ? __('Oui', 'wp-rank-tracker') : __('Non', 'wp-rank-tracker')); ?></strong><span><?php esc_html_e('historique disponible', 'wp-rank-tracker'); ?></span></div>
+                </div>
+                <div class="wrt-performance-card">
+                    <div class="wrt-section-head">
+                        <h3><?php esc_html_e('Performance Google', 'wp-rank-tracker'); ?></h3>
+                        <?php if ($googlePerformanceChart['date_range'] !== '') : ?>
+                            <span class="wrt-performance-range"><?php echo esc_html($googlePerformanceChart['date_range']); ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <?php if (empty($googlePerformanceChart['available'])) : ?>
+                        <p class="wrt-empty-copy"><?php esc_html_e('La courbe apparaitra apres au moins un import Search Console. Elle deviendra plus utile avec plusieurs imports.', 'wp-rank-tracker'); ?></p>
+                    <?php else : ?>
+                        <div class="wrt-performance-metrics">
+                            <?php foreach ($googlePerformanceChart['metrics'] as $metric) : ?>
+                                <article class="wrt-performance-metric wrt-performance-<?php echo esc_attr($metric['tone']); ?>">
+                                    <span><?php echo esc_html($metric['label']); ?></span>
+                                    <strong><?php echo esc_html($metric['value']); ?></strong>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="wrt-performance-chart" aria-label="<?php esc_attr_e('Courbes de performance Google Search Console', 'wp-rank-tracker'); ?>">
+                            <svg viewBox="0 0 100 44" role="img" focusable="false">
+                                <line x1="0" y1="6" x2="100" y2="6" class="wrt-chart-grid-line" />
+                                <line x1="0" y1="22" x2="100" y2="22" class="wrt-chart-grid-line" />
+                                <line x1="0" y1="38" x2="100" y2="38" class="wrt-chart-grid-line" />
+                                <?php foreach ($googlePerformanceChart['lines'] as $line) : ?>
+                                    <?php if ($line['points'] !== '') : ?>
+                                        <polyline class="wrt-performance-line wrt-performance-line-<?php echo esc_attr($line['key']); ?>" points="<?php echo esc_attr($line['points']); ?>" />
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </svg>
+                        </div>
+                        <div class="wrt-performance-legend">
+                            <?php foreach ($googlePerformanceChart['lines'] as $line) : ?>
+                                <span class="wrt-performance-legend-<?php echo esc_attr($line['key']); ?>"><?php echo esc_html($line['label']); ?></span>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="wrt-inline-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -1349,6 +1387,57 @@ final class WP_Rank_Tracker_Admin {
             'start_date' => sanitize_text_field((string) ($previous['start_date'] ?? '')),
             'end_date' => sanitize_text_field((string) ($previous['end_date'] ?? '')),
             'property_uri' => sanitize_text_field((string) ($previous['property_uri'] ?? '')),
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function get_google_report_history(): array {
+        $history = get_option(self::REPORT_HISTORY_OPTION_KEY, []);
+        if (!is_array($history)) {
+            return [];
+        }
+
+        $reports = [];
+        foreach ($history as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $reports[] = $this->sanitize_google_report($item);
+        }
+
+        return $reports;
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     * @return array<string, mixed>
+     */
+    private function sanitize_google_report(array $report): array {
+        $rows = [];
+        foreach (($report['rows'] ?? []) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $rows[] = [
+                'page' => esc_url_raw((string) ($row['page'] ?? '')),
+                'query' => sanitize_text_field((string) ($row['query'] ?? '')),
+                'clicks' => (int) ($row['clicks'] ?? 0),
+                'impressions' => (int) ($row['impressions'] ?? 0),
+                'ctr' => (float) ($row['ctr'] ?? 0),
+                'position' => (float) ($row['position'] ?? 0),
+            ];
+        }
+
+        return [
+            'fetched_at' => sanitize_text_field((string) ($report['fetched_at'] ?? '')),
+            'start_date' => sanitize_text_field((string) ($report['start_date'] ?? '')),
+            'end_date' => sanitize_text_field((string) ($report['end_date'] ?? '')),
+            'property_uri' => sanitize_text_field((string) ($report['property_uri'] ?? '')),
             'rows' => $rows,
         ];
     }
@@ -2351,6 +2440,182 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return $rows;
+    }
+
+    /**
+     * @param array<string, mixed> $currentReport
+     * @param array<int, array<string, mixed>> $history
+     * @return array{available:bool,date_range:string,metrics:array<int,array{label:string,value:string,tone:string}>,lines:array<int,array{key:string,label:string,points:string}>}
+     */
+    private function build_google_performance_chart(array $currentReport, array $history): array {
+        $reports = array_values(array_filter(array_merge([$currentReport], $history), static fn($report): bool => is_array($report) && (string) ($report['fetched_at'] ?? '') !== ''));
+        $reports = array_slice($reports, 0, 14);
+        $reports = array_reverse($reports);
+
+        if ($reports === []) {
+            return [
+                'available' => false,
+                'date_range' => '',
+                'metrics' => [],
+                'lines' => [
+                    ['key' => 'clicks', 'label' => __('Clics', 'wp-rank-tracker'), 'points' => ''],
+                    ['key' => 'impressions', 'label' => __('Impressions', 'wp-rank-tracker'), 'points' => ''],
+                    ['key' => 'position', 'label' => __('Position moyenne', 'wp-rank-tracker'), 'points' => ''],
+                ],
+            ];
+        }
+
+        $points = [];
+        foreach ($reports as $report) {
+            $summary = $this->summarize_google_report_for_chart($report);
+            $points[] = $summary;
+        }
+
+        $latest = end($points);
+        $latest = is_array($latest) ? $latest : ['clicks' => 0, 'impressions' => 0, 'ctr' => 0.0, 'position' => 0.0];
+
+        return [
+            'available' => true,
+            'date_range' => $this->format_performance_date_range($reports),
+            'metrics' => [
+                [
+                    'label' => __('Clics', 'wp-rank-tracker'),
+                    'value' => number_format_i18n((int) ($latest['clicks'] ?? 0)),
+                    'tone' => ((int) ($latest['clicks'] ?? 0)) > 0 ? 'good' : 'warning',
+                ],
+                [
+                    'label' => __('Impressions', 'wp-rank-tracker'),
+                    'value' => number_format_i18n((int) ($latest['impressions'] ?? 0)),
+                    'tone' => ((int) ($latest['impressions'] ?? 0)) > 0 ? 'good' : 'warning',
+                ],
+                [
+                    'label' => __('CTR', 'wp-rank-tracker'),
+                    'value' => $this->format_ctr((float) ($latest['ctr'] ?? 0)),
+                    'tone' => ((float) ($latest['ctr'] ?? 0)) >= 0.03 ? 'good' : 'warning',
+                ],
+                [
+                    'label' => __('Position moyenne', 'wp-rank-tracker'),
+                    'value' => $this->format_position((float) ($latest['position'] ?? 0)),
+                    'tone' => ((float) ($latest['position'] ?? 0)) > 0 && ((float) ($latest['position'] ?? 0)) <= 10 ? 'good' : 'warning',
+                ],
+            ],
+            'lines' => [
+                [
+                    'key' => 'clicks',
+                    'label' => __('Clics', 'wp-rank-tracker'),
+                    'points' => $this->build_svg_points($points, 'clicks', false),
+                ],
+                [
+                    'key' => 'impressions',
+                    'label' => __('Impressions', 'wp-rank-tracker'),
+                    'points' => $this->build_svg_points($points, 'impressions', false),
+                ],
+                [
+                    'key' => 'position',
+                    'label' => __('Position moyenne', 'wp-rank-tracker'),
+                    'points' => $this->build_svg_points($points, 'position', true),
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     * @return array{clicks:int,impressions:int,ctr:float,position:float}
+     */
+    private function summarize_google_report_for_chart(array $report): array {
+        $clicks = 0;
+        $impressions = 0;
+        $positionTotal = 0.0;
+        $positionCount = 0;
+
+        foreach (($report['rows'] ?? []) as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $clicks += (int) ($row['clicks'] ?? 0);
+            $impressions += (int) ($row['impressions'] ?? 0);
+            $position = (float) ($row['position'] ?? 0);
+            if ($position > 0) {
+                $positionTotal += $position;
+                $positionCount++;
+            }
+        }
+
+        return [
+            'clicks' => $clicks,
+            'impressions' => $impressions,
+            'ctr' => $impressions > 0 ? $clicks / $impressions : 0.0,
+            'position' => $positionCount > 0 ? round($positionTotal / $positionCount, 1) : 0.0,
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $points
+     */
+    private function build_svg_points(array $points, string $key, bool $lowerIsBetter): string {
+        $count = count($points);
+        if ($count === 0) {
+            return '';
+        }
+
+        $values = array_map(static fn(array $point): float => (float) ($point[$key] ?? 0), $points);
+        $nonZeroValues = array_values(array_filter($values, static fn(float $value): bool => $value > 0));
+        if ($nonZeroValues === []) {
+            return '';
+        }
+
+        $min = min($nonZeroValues);
+        $max = max($nonZeroValues);
+        if ($min === $max) {
+            $min = 0.0;
+        }
+
+        $range = max(0.0001, $max - $min);
+        $chunks = [];
+        foreach ($values as $index => $value) {
+            if ($value <= 0) {
+                $normalized = 0.0;
+            } else {
+                $normalized = ($value - $min) / $range;
+            }
+
+            if ($lowerIsBetter) {
+                $normalized = 1 - $normalized;
+            }
+
+            $x = $count > 1 ? ($index / ($count - 1)) * 100 : 50;
+            $y = 38 - ($normalized * 32);
+            $chunks[] = round($x, 2) . ',' . round($y, 2);
+        }
+
+        return implode(' ', $chunks);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $reports
+     */
+    private function format_performance_date_range(array $reports): string {
+        $first = reset($reports);
+        $last = end($reports);
+        if (!is_array($first) || !is_array($last)) {
+            return '';
+        }
+
+        $firstEndDate = (string) ($first['end_date'] ?? '');
+        $lastEndDate = (string) ($last['end_date'] ?? '');
+        $firstDate = $firstEndDate !== '' ? $firstEndDate : (string) ($first['fetched_at'] ?? '');
+        $lastDate = $lastEndDate !== '' ? $lastEndDate : (string) ($last['fetched_at'] ?? '');
+        if ($firstDate === '' || $lastDate === '') {
+            return '';
+        }
+
+        if ($firstDate === $lastDate) {
+            return $firstDate;
+        }
+
+        return $firstDate . ' - ' . $lastDate;
     }
 
     /**

@@ -583,6 +583,144 @@
     margin-top: 10px;
 }
 
+.wrt-performance-card {
+    margin-top: 20px;
+    padding: 18px;
+    border: 1px solid #d0d7de;
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.wrt-performance-card .wrt-section-head {
+    margin-bottom: 12px;
+}
+
+.wrt-performance-card h3 {
+    margin: 0;
+}
+
+.wrt-performance-range {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wrt-performance-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.wrt-performance-metric {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #dbe4ee;
+    background: #f8fafc;
+}
+
+.wrt-performance-metric span,
+.wrt-performance-metric strong {
+    display: block;
+}
+
+.wrt-performance-metric span {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.wrt-performance-metric strong {
+    margin-top: 5px;
+    color: #0f172a;
+    font-size: 22px;
+}
+
+.wrt-performance-good {
+    background: #ecfdf5;
+    border-color: #86efac;
+}
+
+.wrt-performance-good strong {
+    color: #166534;
+}
+
+.wrt-performance-warning {
+    background: #fff7ed;
+    border-color: #fdba74;
+}
+
+.wrt-performance-warning strong {
+    color: #9a3412;
+}
+
+.wrt-performance-chart {
+    padding: 10px 0 4px;
+}
+
+.wrt-performance-chart svg {
+    display: block;
+    width: 100%;
+    height: 190px;
+}
+
+.wrt-chart-grid-line {
+    stroke: #e2e8f0;
+    stroke-width: 0.5;
+}
+
+.wrt-performance-line {
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.wrt-performance-line-clicks {
+    stroke: #16a34a;
+}
+
+.wrt-performance-line-impressions {
+    stroke: #f97316;
+}
+
+.wrt-performance-line-position {
+    stroke: #dc2626;
+}
+
+.wrt-performance-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.wrt-performance-legend span::before {
+    content: "";
+    display: inline-block;
+    width: 18px;
+    height: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border-radius: 999px;
+}
+
+.wrt-performance-legend-clicks::before {
+    background: #16a34a;
+}
+
+.wrt-performance-legend-impressions::before {
+    background: #f97316;
+}
+
+.wrt-performance-legend-position::before {
+    background: #dc2626;
+}
+
 .wrt-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
@@ -817,7 +955,8 @@
     .wrt-workspace,
     .wrt-dashboard-grid,
     .wrt-dashboard-panels,
-    .wrt-summary-list {
+    .wrt-summary-list,
+    .wrt-performance-metrics {
         grid-template-columns: 1fr;
     }
 
