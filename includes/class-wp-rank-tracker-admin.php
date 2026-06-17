@@ -657,7 +657,7 @@ final class WP_Rank_Tracker_Admin {
                                     <td><?php echo esc_html($podiumRow['query']); ?></td>
                                     <td><?php echo esc_html($podiumRow['page']); ?></td>
                                     <td><?php echo esc_html((string) $podiumRow['clicks']); ?></td>
-                                    <td><?php echo esc_html($this->format_position((float) $podiumRow['position'])); ?></td>
+                                    <td><?php echo wp_kses_post($this->format_position_badge((float) $podiumRow['position'])); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -686,7 +686,7 @@ final class WP_Rank_Tracker_Admin {
                                     <td><strong><?php echo esc_html($row['page']); ?></strong></td>
                                     <td><?php echo esc_html($row['top_query']); ?></td>
                                     <td><?php echo esc_html((string) $row['impressions']); ?></td>
-                                    <td><?php echo esc_html($this->format_position((float) $row['position'])); ?></td>
+                                    <td><?php echo wp_kses_post($this->format_position_badge((float) $row['position'])); ?></td>
                                     <td><?php echo esc_html($row['action']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -774,7 +774,7 @@ final class WP_Rank_Tracker_Admin {
                                     <td><strong><?php echo esc_html($row['query']); ?></strong></td>
                                     <td><?php echo esc_html($row['page']); ?></td>
                                     <td><?php echo esc_html((string) $row['impressions']); ?></td>
-                                    <td><?php echo esc_html($this->format_position((float) $row['position'])); ?></td>
+                                    <td><?php echo wp_kses_post($this->format_position_badge((float) $row['position'])); ?></td>
                                     <td><?php echo esc_html($row['action']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -841,7 +841,7 @@ final class WP_Rank_Tracker_Admin {
                                     <td><?php echo esc_html((string) $pageRow['clicks']); ?></td>
                                     <td><?php echo esc_html((string) $pageRow['impressions']); ?></td>
                                     <td><?php echo esc_html($this->format_ctr($pageRow['ctr'])); ?></td>
-                                    <td><?php echo esc_html($this->format_position($pageRow['position'])); ?></td>
+                                    <td><?php echo wp_kses_post($this->format_position_badge((float) $pageRow['position'])); ?></td>
                                     <td><?php echo wp_kses_post($pageRow['trend']); ?></td>
                                     <td><?php echo esc_html($pageRow['top_query']); ?></td>
                                 </tr>
@@ -873,7 +873,7 @@ final class WP_Rank_Tracker_Admin {
                                     <td><?php echo esc_html($row['local_keyword']); ?></td>
                                     <td><?php echo esc_html($row['google_query']); ?></td>
                                     <td><span class="wrt-match wrt-match-<?php echo esc_attr($row['match_status']); ?>"><?php echo esc_html($row['match_label']); ?></span></td>
-                                    <td><?php echo esc_html($this->format_position((float) $row['position'])); ?></td>
+                                    <td><?php echo wp_kses_post($this->format_position_badge((float) $row['position'])); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -905,7 +905,7 @@ final class WP_Rank_Tracker_Admin {
                                     <td><?php echo esc_html((string) $row['clicks']); ?></td>
                                     <td><?php echo esc_html((string) $row['impressions']); ?></td>
                                     <td><?php echo esc_html($this->format_ctr($row['ctr'])); ?></td>
-                                    <td><?php echo esc_html($this->format_position($row['position'])); ?></td>
+                                    <td><?php echo wp_kses_post($this->format_position_badge((float) $row['position'])); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -987,7 +987,7 @@ final class WP_Rank_Tracker_Admin {
                                 <tr>
                                     <td><strong><?php echo esc_html($row['keyword']); ?></strong></td>
                                     <td><?php echo esc_html($row['local_page']); ?></td>
-                                    <td><?php echo esc_html($row['google_signal']); ?></td>
+                                    <td><?php echo wp_kses_post($row['google_signal']); ?></td>
                                     <td><?php echo esc_html($row['competitors']); ?></td>
                                     <td><?php echo esc_html($row['strategy']); ?></td>
                                 </tr>
@@ -2505,9 +2505,7 @@ final class WP_Rank_Tracker_Admin {
             $rows[] = [
                 'keyword' => (string) $keyword,
                 'local_page' => $localMatch !== null ? (string) $localMatch['title'] : __('Aucune page locale claire', 'wp-rank-tracker'),
-                'google_signal' => $googleMatch !== null
-                    ? sprintf(__('Query vue, pos. %s', 'wp-rank-tracker'), $this->format_position((float) $googleMatch['position']))
-                    : __('Pas encore observe dans Search Console', 'wp-rank-tracker'),
+                'google_signal' => $this->format_google_signal($googleMatch),
                 'competitors' => $competitors !== [] ? implode(', ', array_slice($competitors, 0, 4)) : __('Aucun concurrent renseigne', 'wp-rank-tracker'),
                 'strategy' => $this->build_strategy_note($localMatch, $googleMatch),
             ];
@@ -3706,6 +3704,47 @@ final class WP_Rank_Tracker_Admin {
         }
 
         return (string) number_format_i18n($position, 1);
+    }
+
+    private function format_position_badge(float $position): string {
+        if ($position <= 0) {
+            return sprintf(
+                '<span class="wrt-position-badge wrt-position-bad"><span class="wrt-position-arrow">↓</span>%s</span>',
+                esc_html__('Non visible', 'wp-rank-tracker')
+            );
+        }
+
+        $class = 'wrt-position-bad';
+        $arrow = '↓';
+        if ($position <= 10) {
+            $class = 'wrt-position-good';
+            $arrow = '↑';
+        } elseif ($position <= 30) {
+            $class = 'wrt-position-warning';
+            $arrow = '→';
+        }
+
+        return sprintf(
+            '<span class="wrt-position-badge %1$s"><span class="wrt-position-arrow">%2$s</span>%3$s</span>',
+            esc_attr($class),
+            esc_html($arrow),
+            esc_html($this->format_position($position))
+        );
+    }
+
+    private function format_google_signal(?array $googleMatch): string {
+        if ($googleMatch === null) {
+            return sprintf(
+                '<span class="wrt-position-badge wrt-position-bad"><span class="wrt-position-arrow">↓</span>%s</span>',
+                esc_html__('Pas encore observe dans Search Console', 'wp-rank-tracker')
+            );
+        }
+
+        return sprintf(
+            '<span class="wrt-google-signal">%1$s %2$s</span>',
+            esc_html__('Query vue, pos.', 'wp-rank-tracker'),
+            $this->format_position_badge((float) ($googleMatch['position'] ?? 0))
+        );
     }
 
     private function render_notice(): void {

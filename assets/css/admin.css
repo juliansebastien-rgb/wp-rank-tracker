@@ -670,6 +670,67 @@
     color: #0f172a;
 }
 
+.wrt-google-signal {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.wrt-position-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.wrt-position-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.wrt-position-good {
+    background: #ecfdf5;
+    border-color: #86efac;
+    color: #166534;
+}
+
+.wrt-position-good .wrt-position-arrow {
+    background: #16a34a;
+}
+
+.wrt-position-warning {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+
+.wrt-position-warning .wrt-position-arrow {
+    background: #f97316;
+}
+
+.wrt-position-bad {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+.wrt-position-bad .wrt-position-arrow {
+    background: #dc2626;
+}
+
 .wrt-delta {
     display: inline-flex;
     align-items: center;
