@@ -689,6 +689,23 @@
     stroke: #dc2626;
 }
 
+.wrt-performance-dot {
+    stroke: #fff;
+    stroke-width: 0.75;
+}
+
+.wrt-performance-dot-clicks {
+    fill: #16a34a;
+}
+
+.wrt-performance-dot-impressions {
+    fill: #f97316;
+}
+
+.wrt-performance-dot-position {
+    fill: #dc2626;
+}
+
 .wrt-performance-legend {
     display: flex;
     flex-wrap: wrap;
@@ -719,6 +736,55 @@
 
 .wrt-performance-legend-position::before {
     background: #dc2626;
+}
+
+.wrt-performance-scales {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.wrt-performance-scale {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #dbe4ee;
+}
+
+.wrt-performance-scale strong,
+.wrt-performance-scale span,
+.wrt-performance-scale em {
+    display: block;
+}
+
+.wrt-performance-scale strong {
+    color: #0f172a;
+}
+
+.wrt-performance-scale span {
+    margin-top: 4px;
+    color: #334155;
+    font-weight: 700;
+}
+
+.wrt-performance-scale em {
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 12px;
+    font-style: normal;
+}
+
+.wrt-performance-scale-clicks {
+    border-color: #86efac;
+}
+
+.wrt-performance-scale-impressions {
+    border-color: #fdba74;
+}
+
+.wrt-performance-scale-position {
+    border-color: #fca5a5;
 }
 
 .wrt-workspace {
@@ -956,7 +1022,8 @@
     .wrt-dashboard-grid,
     .wrt-dashboard-panels,
     .wrt-summary-list,
-    .wrt-performance-metrics {
+    .wrt-performance-metrics,
+    .wrt-performance-scales {
         grid-template-columns: 1fr;
     }
 

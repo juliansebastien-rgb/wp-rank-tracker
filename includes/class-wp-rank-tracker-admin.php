@@ -604,6 +604,9 @@ final class WP_Rank_Tracker_Admin {
                                 <?php foreach ($googlePerformanceChart['lines'] as $line) : ?>
                                     <?php if ($line['points'] !== '') : ?>
                                         <polyline class="wrt-performance-line wrt-performance-line-<?php echo esc_attr($line['key']); ?>" points="<?php echo esc_attr($line['points']); ?>" />
+                                        <?php foreach ($line['dots'] as $dot) : ?>
+                                            <circle class="wrt-performance-dot wrt-performance-dot-<?php echo esc_attr($line['key']); ?>" cx="<?php echo esc_attr((string) $dot['x']); ?>" cy="<?php echo esc_attr((string) $dot['y']); ?>" r="1.35" />
+                                        <?php endforeach; ?>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                             </svg>
@@ -611,6 +614,17 @@ final class WP_Rank_Tracker_Admin {
                         <div class="wrt-performance-legend">
                             <?php foreach ($googlePerformanceChart['lines'] as $line) : ?>
                                 <span class="wrt-performance-legend-<?php echo esc_attr($line['key']); ?>"><?php echo esc_html($line['label']); ?></span>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="wrt-performance-scales">
+                            <?php foreach ($googlePerformanceChart['lines'] as $line) : ?>
+                                <article class="wrt-performance-scale wrt-performance-scale-<?php echo esc_attr($line['key']); ?>">
+                                    <strong><?php echo esc_html($line['label']); ?></strong>
+                                    <span><?php echo esc_html($line['scale']); ?></span>
+                                    <?php if ($line['hint'] !== '') : ?>
+                                        <em><?php echo esc_html($line['hint']); ?></em>
+                                    <?php endif; ?>
+                                </article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
@@ -2445,7 +2459,7 @@ final class WP_Rank_Tracker_Admin {
     /**
      * @param array<string, mixed> $currentReport
      * @param array<int, array<string, mixed>> $history
-     * @return array{available:bool,date_range:string,metrics:array<int,array{label:string,value:string,tone:string}>,lines:array<int,array{key:string,label:string,points:string}>}
+     * @return array{available:bool,date_range:string,metrics:array<int,array{label:string,value:string,tone:string}>,lines:array<int,array{key:string,label:string,points:string,dots:array<int,array{x:float,y:float}>,scale:string,hint:string}>}
      */
     private function build_google_performance_chart(array $currentReport, array $history): array {
         $reports = array_values(array_filter(array_merge([$currentReport], $history), static fn($report): bool => is_array($report) && (string) ($report['fetched_at'] ?? '') !== ''));
@@ -2458,9 +2472,9 @@ final class WP_Rank_Tracker_Admin {
                 'date_range' => '',
                 'metrics' => [],
                 'lines' => [
-                    ['key' => 'clicks', 'label' => __('Clics', 'wp-rank-tracker'), 'points' => ''],
-                    ['key' => 'impressions', 'label' => __('Impressions', 'wp-rank-tracker'), 'points' => ''],
-                    ['key' => 'position', 'label' => __('Position moyenne', 'wp-rank-tracker'), 'points' => ''],
+                    ['key' => 'clicks', 'label' => __('Clics', 'wp-rank-tracker'), 'points' => '', 'dots' => []],
+                    ['key' => 'impressions', 'label' => __('Impressions', 'wp-rank-tracker'), 'points' => '', 'dots' => []],
+                    ['key' => 'position', 'label' => __('Position moyenne', 'wp-rank-tracker'), 'points' => '', 'dots' => []],
                 ],
             ];
         }
@@ -2473,6 +2487,10 @@ final class WP_Rank_Tracker_Admin {
 
         $latest = end($points);
         $latest = is_array($latest) ? $latest : ['clicks' => 0, 'impressions' => 0, 'ctr' => 0.0, 'position' => 0.0];
+
+        $clickCoordinates = $this->build_svg_coordinates($points, 'clicks', false);
+        $impressionCoordinates = $this->build_svg_coordinates($points, 'impressions', false);
+        $positionCoordinates = $this->build_svg_coordinates($points, 'position', true);
 
         return [
             'available' => true,
@@ -2503,17 +2521,26 @@ final class WP_Rank_Tracker_Admin {
                 [
                     'key' => 'clicks',
                     'label' => __('Clics', 'wp-rank-tracker'),
-                    'points' => $this->build_svg_points($points, 'clicks', false),
+                    'points' => $this->format_svg_points($clickCoordinates),
+                    'dots' => $clickCoordinates,
+                    'scale' => $this->format_chart_scale($points, 'clicks', false),
+                    'hint' => __('plus haut = plus de clics', 'wp-rank-tracker'),
                 ],
                 [
                     'key' => 'impressions',
                     'label' => __('Impressions', 'wp-rank-tracker'),
-                    'points' => $this->build_svg_points($points, 'impressions', false),
+                    'points' => $this->format_svg_points($impressionCoordinates),
+                    'dots' => $impressionCoordinates,
+                    'scale' => $this->format_chart_scale($points, 'impressions', false),
+                    'hint' => __('plus haut = plus d impressions', 'wp-rank-tracker'),
                 ],
                 [
                     'key' => 'position',
                     'label' => __('Position moyenne', 'wp-rank-tracker'),
-                    'points' => $this->build_svg_points($points, 'position', true),
+                    'points' => $this->format_svg_points($positionCoordinates),
+                    'dots' => $positionCoordinates,
+                    'scale' => $this->format_chart_scale($points, 'position', true),
+                    'hint' => __('plus haut = meilleure position', 'wp-rank-tracker'),
                 ],
             ],
         ];
@@ -2553,44 +2580,90 @@ final class WP_Rank_Tracker_Admin {
 
     /**
      * @param array<int, array<string, mixed>> $points
+     * @return array<int, array{x:float,y:float}>
      */
-    private function build_svg_points(array $points, string $key, bool $lowerIsBetter): string {
+    private function build_svg_coordinates(array $points, string $key, bool $lowerIsBetter): array {
         $count = count($points);
         if ($count === 0) {
-            return '';
+            return [];
         }
 
         $values = array_map(static fn(array $point): float => (float) ($point[$key] ?? 0), $points);
         $nonZeroValues = array_values(array_filter($values, static fn(float $value): bool => $value > 0));
         if ($nonZeroValues === []) {
-            return '';
+            return [];
         }
 
         $min = min($nonZeroValues);
         $max = max($nonZeroValues);
-        if ($min === $max) {
-            $min = 0.0;
-        }
+        $allValuesEqual = $min === $max;
 
         $range = max(0.0001, $max - $min);
-        $chunks = [];
+        $coordinates = [];
         foreach ($values as $index => $value) {
             if ($value <= 0) {
                 $normalized = 0.0;
+            } elseif ($allValuesEqual) {
+                $normalized = 1.0;
             } else {
                 $normalized = ($value - $min) / $range;
             }
 
-            if ($lowerIsBetter) {
+            if ($lowerIsBetter && !$allValuesEqual) {
                 $normalized = 1 - $normalized;
             }
 
             $x = $count > 1 ? ($index / ($count - 1)) * 100 : 50;
             $y = 38 - ($normalized * 32);
-            $chunks[] = round($x, 2) . ',' . round($y, 2);
+            $coordinates[] = [
+                'x' => round($x, 2),
+                'y' => round($y, 2),
+            ];
+        }
+
+        return $coordinates;
+    }
+
+    /**
+     * @param array<int, array{x:float,y:float}> $coordinates
+     */
+    private function format_svg_points(array $coordinates): string {
+        $chunks = [];
+        foreach ($coordinates as $coordinate) {
+            $chunks[] = round((float) $coordinate['x'], 2) . ',' . round((float) $coordinate['y'], 2);
         }
 
         return implode(' ', $chunks);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $points
+     */
+    private function format_chart_scale(array $points, string $key, bool $lowerIsBetter): string {
+        $values = array_map(static fn(array $point): float => (float) ($point[$key] ?? 0), $points);
+        $values = array_values(array_filter($values, static fn(float $value): bool => $value > 0));
+        if ($values === []) {
+            return __('aucune valeur', 'wp-rank-tracker');
+        }
+
+        $min = min($values);
+        $max = max($values);
+
+        if ($key === 'position') {
+            $best = $lowerIsBetter ? $min : $max;
+            $weak = $lowerIsBetter ? $max : $min;
+            return sprintf(
+                __('meilleur %1$s / moins bon %2$s', 'wp-rank-tracker'),
+                $this->format_position((float) $best),
+                $this->format_position((float) $weak)
+            );
+        }
+
+        return sprintf(
+            __('de %1$s a %2$s', 'wp-rank-tracker'),
+            number_format_i18n((int) $min),
+            number_format_i18n((int) $max)
+        );
     }
 
     /**
