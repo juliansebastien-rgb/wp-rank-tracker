@@ -303,6 +303,7 @@ final class WP_Rank_Tracker_Admin {
         $googleClickChartRows = $this->build_google_click_chart_rows($pageRows);
         $serpVisibilityChartRows = $this->build_serp_visibility_chart_rows($settings, $serpReport);
         $detectedKeywordSuggestions = $this->build_detected_keyword_suggestions($localAudit['pages'], is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
+        $localKeywordAlignmentRows = $this->build_local_keyword_alignment_rows($localAudit['pages'], is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
         $dailySummary = $this->build_daily_summary($priorityOpportunities, $googleTrendRows, $serpComparisonRows);
         $nextActions = $this->build_next_actions($settings, $isConnected, $selectedProperty, $priorityOpportunities);
         $alertPages = $this->build_alert_pages($googleTrendRows);
@@ -573,55 +574,59 @@ final class WP_Rank_Tracker_Admin {
 
             <section class="wrt-card wrt-table-card">
                 <div class="wrt-section-head">
-                    <h2><?php esc_html_e('Mots-cles potentiels par page', 'wp-rank-tracker'); ?></h2>
+                    <h2><?php esc_html_e('Alignement pages / mots-cles suivis', 'wp-rank-tracker'); ?></h2>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <input type="hidden" name="action" value="wp_rank_tracker_refresh_local" />
                         <?php wp_nonce_field(self::NONCE_ACTION_REFRESH_LOCAL); ?>
                         <?php submit_button(__('Mettre a jour', 'wp-rank-tracker'), 'secondary', 'submit', false); ?>
                     </form>
                 </div>
-                <?php if ($localAudit['pages'] === []) : ?>
-                    <p><?php esc_html_e('Aucune page publiee analysee.', 'wp-rank-tracker'); ?></p>
+                <?php if ($settings['tracked_keywords'] === []) : ?>
+                    <p><?php esc_html_e('Ajoute d abord tes mots-cles suivis dans le bloc au-dessus. Ce tableau analysera ensuite quelles pages peuvent vraiment les porter.', 'wp-rank-tracker'); ?></p>
+                <?php elseif ($localKeywordAlignmentRows === []) : ?>
+                    <p><?php esc_html_e('Aucune page publiee analysee pour le moment.', 'wp-rank-tracker'); ?></p>
                 <?php else : ?>
                     <table class="widefat striped">
                         <thead>
                             <tr>
-                                <th><?php esc_html_e('Page', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Mot-cle probable', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Mots secondaires', 'wp-rank-tracker'); ?></th>
-                                <th><?php esc_html_e('Ameliorations', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Mot-cle suivi', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Page candidate', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Alignement local', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Signaux detectes', 'wp-rank-tracker'); ?></th>
+                                <th><?php esc_html_e('Action conseillee', 'wp-rank-tracker'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($localAudit['pages'] as $pageAudit) : ?>
+                            <?php foreach ($localKeywordAlignmentRows as $row) : ?>
                                 <tr>
                                     <td>
-                                        <strong><?php echo esc_html($pageAudit['title']); ?></strong><br />
-                                        <span class="description"><?php echo esc_html($pageAudit['type_label'] . ' - ' . $pageAudit['url']); ?></span>
+                                        <strong><?php echo esc_html($row['keyword']); ?></strong>
+                                    </td>
+                                    <td>
+                                        <?php if ($row['page'] === null) : ?>
+                                            <span class="wrt-match wrt-match-empty"><?php esc_html_e('Aucune page claire', 'wp-rank-tracker'); ?></span>
+                                        <?php else : ?>
+                                            <strong><?php echo esc_html($row['page']['title']); ?></strong><br />
+                                            <span class="description"><?php echo esc_html($row['page']['type_label'] . ' - ' . $row['page']['url']); ?></span>
+                                        <?php endif; ?>
+                                        <?php if ($row['actions'] !== []) : ?>
                                         <div class="wrt-row-actions">
-                                            <?php foreach ($pageAudit['actions'] as $action) : ?>
+                                            <?php foreach ($row['actions'] as $action) : ?>
                                                 <a class="button button-small" href="<?php echo esc_url($action['url']); ?>">
                                                     <?php echo esc_html($action['label']); ?>
                                                 </a>
                                             <?php endforeach; ?>
                                         </div>
+                                        <?php endif; ?>
                                     </td>
-                                    <td><?php echo esc_html($pageAudit['primary_keyword']); ?></td>
-                                    <td><?php echo esc_html(implode(', ', $pageAudit['secondary_keywords'])); ?></td>
                                     <td>
-                                        <ul class="wrt-recommendations">
-                                            <?php foreach ($pageAudit['recommendations'] as $recommendation) : ?>
-                                                <li>
-                                                    <span class="wrt-recommendation-priority wrt-priority-<?php echo esc_attr($recommendation['priority']); ?>">
-                                                        <?php echo esc_html($recommendation['priority_label']); ?>
-                                                    </span>
-                                                    <strong><?php echo esc_html($recommendation['issue']); ?></strong>
-                                                    <span class="wrt-recommendation-meta"><?php echo esc_html($recommendation['area_label']); ?></span>
-                                                    <span class="wrt-recommendation-why"><?php echo esc_html($recommendation['why']); ?></span>
-                                                    <span class="wrt-recommendation-action"><?php echo esc_html($recommendation['action']); ?></span>
-                                                </li>
-                                            <?php endforeach; ?>
-                                        </ul>
+                                        <span class="wrt-match wrt-match-<?php echo esc_attr($row['status']); ?>"><?php echo esc_html($row['status_label']); ?></span>
+                                    </td>
+                                    <td>
+                                        <?php echo esc_html($row['signals']); ?>
+                                    </td>
+                                    <td>
+                                        <?php echo esc_html($row['action']); ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -3873,6 +3878,126 @@ final class WP_Rank_Tracker_Admin {
         });
 
         return array_values($suggestions);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $localPages
+     * @param string[] $trackedKeywords
+     * @return array<int, array{keyword:string,page:?array<string,mixed>,status:string,status_label:string,signals:string,action:string,actions:array<int, array{label:string,url:string}>}>
+     */
+    private function build_local_keyword_alignment_rows(array $localPages, array $trackedKeywords): array {
+        $rows = [];
+
+        foreach ($trackedKeywords as $keyword) {
+            $keyword = trim((string) $keyword);
+            if ($keyword === '') {
+                continue;
+            }
+
+            $best = null;
+            $bestScore = 0.0;
+            foreach ($localPages as $page) {
+                $score = $this->score_page_for_tracked_keyword($page, $keyword);
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $best = $page;
+                }
+            }
+
+            if ($best === null || $bestScore <= 0) {
+                $rows[] = [
+                    'keyword' => $keyword,
+                    'page' => null,
+                    'status' => 'empty',
+                    'status_label' => __('Absent', 'wp-rank-tracker'),
+                    'signals' => __('Aucun titre, H1, slug ou terme local ne reprend clairement ce mot-cle.', 'wp-rank-tracker'),
+                    'action' => __('Choisis une page cible existante ou cree une page dediee avant de demander une optimisation.', 'wp-rank-tracker'),
+                    'actions' => [],
+                ];
+                continue;
+            }
+
+            $status = 'weak';
+            $statusLabel = __('Faible', 'wp-rank-tracker');
+            $action = sprintf(__('La page candidate existe, mais elle doit etre retravaillee autour de "%s" : titre, H1, introduction, H2 et liens internes.', 'wp-rank-tracker'), $keyword);
+
+            if ($bestScore >= 0.75) {
+                $status = 'strong';
+                $statusLabel = __('Bon', 'wp-rank-tracker');
+                $action = __('Page candidate coherente. Verifie ensuite avec Google Search Console si Google confirme cette intention.', 'wp-rank-tracker');
+            } elseif ($bestScore >= 0.4) {
+                $status = 'partial';
+                $statusLabel = __('Partiel', 'wp-rank-tracker');
+                $action = sprintf(__('Renforce cette page sur "%s" sans changer de cible : titre/H1 plus clair, H2 dedies et exemples plus precis.', 'wp-rank-tracker'), $keyword);
+            }
+
+            $signals = $this->summarize_local_keyword_signals($best);
+            $rows[] = [
+                'keyword' => $keyword,
+                'page' => $best,
+                'status' => $status,
+                'status_label' => $statusLabel,
+                'signals' => $signals,
+                'action' => $action,
+                'actions' => is_array($best['actions'] ?? null) ? $best['actions'] : [],
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<string, mixed> $page
+     */
+    private function score_page_for_tracked_keyword(array $page, string $keyword): float {
+        $keywordTokens = array_values(array_unique($this->tokenize_text($keyword)));
+        if ($keywordTokens === []) {
+            return 0.0;
+        }
+
+        $primary = (string) ($page['primary_keyword'] ?? '');
+        $secondary = is_array($page['secondary_keywords'] ?? null) ? implode(' ', array_map('strval', $page['secondary_keywords'])) : '';
+        $haystack = implode(' ', [
+            (string) ($page['title'] ?? ''),
+            $primary,
+            $secondary,
+            (string) ($page['url'] ?? ''),
+        ]);
+        $pageTokens = array_values(array_unique($this->tokenize_text($haystack)));
+        if ($pageTokens === []) {
+            return 0.0;
+        }
+
+        $sharedRatio = count(array_intersect($keywordTokens, $pageTokens)) / max(1, count($keywordTokens));
+        $normalizedKeyword = $this->normalize_keyword_for_match($keyword);
+        $normalizedPrimary = $this->normalize_keyword_for_match($primary);
+        $normalizedTitle = $this->normalize_keyword_for_match((string) ($page['title'] ?? ''));
+
+        if ($normalizedKeyword !== '' && ($normalizedPrimary === $normalizedKeyword || strpos($normalizedPrimary, $normalizedKeyword) !== false)) {
+            $sharedRatio = max($sharedRatio, 1.0);
+        } elseif ($normalizedKeyword !== '' && strpos($normalizedTitle, $normalizedKeyword) !== false) {
+            $sharedRatio = max($sharedRatio, 0.85);
+        }
+
+        return min(1.0, $sharedRatio);
+    }
+
+    /**
+     * @param array<string, mixed> $page
+     */
+    private function summarize_local_keyword_signals(array $page): string {
+        $secondaryKeywords = is_array($page['secondary_keywords'] ?? null) ? array_values(array_filter(array_map('strval', $page['secondary_keywords']))) : [];
+        $signals = [];
+
+        if (!empty($page['primary_keyword'])) {
+            $signals[] = sprintf(__('detecte : %s', 'wp-rank-tracker'), (string) $page['primary_keyword']);
+        }
+
+        if ($secondaryKeywords !== []) {
+            $signals[] = sprintf(__('proches : %s', 'wp-rank-tracker'), implode(', ', array_slice($secondaryKeywords, 0, 2)));
+        }
+
+        return $signals !== [] ? implode(' - ', $signals) : __('Aucun signal local exploitable.', 'wp-rank-tracker');
     }
 
     /**
