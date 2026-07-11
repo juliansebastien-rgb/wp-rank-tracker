@@ -364,6 +364,75 @@
     margin-top: 0;
 }
 
+.wrt-authority-panel {
+    grid-column: 1 / -1;
+}
+
+.wrt-authority-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 82px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.wrt-authority-good {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.wrt-authority-warning {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.wrt-authority-bad {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.wrt-authority-factors {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.wrt-authority-factors article {
+    padding: 12px;
+    border: 1px solid #dbe4ee;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.wrt-authority-factors span,
+.wrt-authority-factors strong,
+.wrt-authority-factors em {
+    display: block;
+}
+
+.wrt-authority-factors span {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.wrt-authority-factors strong {
+    margin-top: 5px;
+    color: #0f172a;
+    font-size: 22px;
+}
+
+.wrt-authority-factors em {
+    margin-top: 4px;
+    color: #475569;
+    font-style: normal;
+}
+
 .wrt-summary-list {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1113,6 +1182,7 @@
     .wrt-dashboard-panels,
     .wrt-summary-list,
     .wrt-keyword-grid,
+    .wrt-authority-factors,
     .wrt-performance-metrics,
     .wrt-performance-scales {
         grid-template-columns: 1fr;

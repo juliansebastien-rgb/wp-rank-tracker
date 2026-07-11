@@ -311,19 +311,20 @@ final class WP_Rank_Tracker_Admin {
         $googleProperties = $this->get_google_properties($settings, $isConnected);
         $selectedProperty = $this->resolve_selected_property($settings, $centralStatus, $googleProperties);
         $currentSection = $this->get_current_section();
-        $setupSteps = $this->build_setup_steps($settings, $localAudit, $isConnected, $selectedProperty, $serpReport);
-        $dashboardMetrics = $this->build_dashboard_metrics($localAudit, $summary, $priorityOpportunities, $googleTrendRows, $serpComparisonRows);
-        $dashboardAlerts = $this->build_dashboard_alerts($settings, $isConnected, $selectedProperty, $priorityOpportunities, $googleTrendRows, $serpComparisonRows);
-        $quickActions = $this->build_quick_actions($settings, $priorityOpportunities);
-        $googleClickChartRows = $this->build_google_click_chart_rows($pageRows);
-        $serpVisibilityChartRows = $this->build_serp_visibility_chart_rows($settings, $serpReport);
-        $detectedKeywordSuggestions = $this->build_detected_keyword_suggestions($localAudit['pages'], is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
         $pageKeywordRows = $this->build_page_keyword_rows(
             $localAudit['pages'],
             is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [],
             $this->resolve_current_page_keyword_targets($settings, is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : [])
         );
         $pageKeywordGroups = $this->group_page_keyword_rows_by_type($pageKeywordRows);
+        $organicAuthorityScore = $this->build_organic_authority_score($localAudit, $summary, $pageRows, $pageKeywordRows);
+        $setupSteps = $this->build_setup_steps($settings, $localAudit, $isConnected, $selectedProperty, $serpReport);
+        $dashboardMetrics = $this->build_dashboard_metrics($localAudit, $summary, $priorityOpportunities, $googleTrendRows, $serpComparisonRows, $organicAuthorityScore);
+        $dashboardAlerts = $this->build_dashboard_alerts($settings, $isConnected, $selectedProperty, $priorityOpportunities, $googleTrendRows, $serpComparisonRows);
+        $quickActions = $this->build_quick_actions($settings, $priorityOpportunities);
+        $googleClickChartRows = $this->build_google_click_chart_rows($pageRows);
+        $serpVisibilityChartRows = $this->build_serp_visibility_chart_rows($settings, $serpReport);
+        $detectedKeywordSuggestions = $this->build_detected_keyword_suggestions($localAudit['pages'], is_array($settings['tracked_keywords']) ? $settings['tracked_keywords'] : []);
         $dailySummary = $this->build_daily_summary($priorityOpportunities, $googleTrendRows, $serpComparisonRows);
         $nextActions = $this->build_next_actions($settings, $isConnected, $selectedProperty, $priorityOpportunities);
         $alertPages = $this->build_alert_pages($googleTrendRows);
@@ -406,6 +407,24 @@ final class WP_Rank_Tracker_Admin {
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
+                    </section>
+                </div>
+                <div class="wrt-dashboard-panels">
+                    <section class="wrt-panel wrt-authority-panel">
+                        <div class="wrt-section-head">
+                            <h3><?php esc_html_e('Autorite organique WP Rank Tracker', 'wp-rank-tracker'); ?></h3>
+                            <span class="wrt-authority-score wrt-authority-<?php echo esc_attr($organicAuthorityScore['tone']); ?>"><?php echo esc_html((string) $organicAuthorityScore['score']); ?>/100</span>
+                        </div>
+                        <p><?php esc_html_e('Score gratuit interne base sur tes donnees WordPress et Search Console. Ce n est pas le DR Ahrefs, le DA Moz, l Authority Score Semrush ou le Trust Flow Majestic.', 'wp-rank-tracker'); ?></p>
+                        <div class="wrt-authority-factors">
+                            <?php foreach ($organicAuthorityScore['factors'] as $factor) : ?>
+                                <article>
+                                    <span><?php echo esc_html($factor['label']); ?></span>
+                                    <strong><?php echo esc_html($factor['value']); ?></strong>
+                                    <em><?php echo esc_html($factor['copy']); ?></em>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
                     </section>
                 </div>
                 <div class="wrt-dashboard-panels">
@@ -2038,6 +2057,7 @@ final class WP_Rank_Tracker_Admin {
             'page_count' => count($pages),
             'query_count' => count($queries),
             'clicks' => $clicks,
+            'impressions' => $impressions,
             'last_fetch_label' => $report['fetched_at'] !== ''
                 ? sprintf(__('Importe le %s', 'wp-rank-tracker'), $report['fetched_at'])
                 : __('Aucun import', 'wp-rank-tracker'),
@@ -2499,15 +2519,22 @@ final class WP_Rank_Tracker_Admin {
      * @param array<int, array<string, mixed>> $priorityOpportunities
      * @param array<int, array<string, mixed>> $googleTrendRows
      * @param array<int, array<string, string>> $serpComparisonRows
+     * @param array<string, mixed> $organicAuthorityScore
      * @return array<int, array{label:string,value:string,copy:string,tone:string}>
      */
-    private function build_dashboard_metrics(array $localAudit, array $summary, array $priorityOpportunities, array $googleTrendRows, array $serpComparisonRows): array {
+    private function build_dashboard_metrics(array $localAudit, array $summary, array $priorityOpportunities, array $googleTrendRows, array $serpComparisonRows, array $organicAuthorityScore): array {
         $highPriorityCount = count(array_filter($priorityOpportunities, static fn(array $item): bool => (string) ($item['priority'] ?? '') === 'high'));
         $downPagesCount = count(array_filter($googleTrendRows, static fn(array $item): bool => strpos((string) ($item['trend'] ?? ''), 'wrt-delta-down') !== false));
         $serpDetectedCount = count(array_filter($serpComparisonRows, static fn(array $item): bool => strpos((string) ($item['target_rank'] ?? ''), 'Non detecte') === false));
         $queryCount = (int) ($summary['query_count'] ?? 0);
 
         return [
+            [
+                'label' => __('Autorite organique', 'wp-rank-tracker'),
+                'value' => (string) ($organicAuthorityScore['score'] ?? 0) . '/100',
+                'copy' => __('Score gratuit WP Rank Tracker base sur Search Console et la qualite du ciblage local.', 'wp-rank-tracker'),
+                'tone' => (string) ($organicAuthorityScore['tone'] ?? 'warning'),
+            ],
             [
                 'label' => __('Priorites hautes', 'wp-rank-tracker'),
                 'value' => (string) $highPriorityCount,
@@ -2531,6 +2558,87 @@ final class WP_Rank_Tracker_Admin {
                 'value' => (string) $serpDetectedCount,
                 'copy' => __('Mots-cles suivis pour lesquels ton domaine ressort deja dans les SERP externes.', 'wp-rank-tracker'),
                 'tone' => $serpDetectedCount > 0 ? 'good' : 'warning',
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $localAudit
+     * @param array<string, int|string|float> $summary
+     * @param array<int, array<string, mixed>> $pageRows
+     * @param array<int, array<string, mixed>> $pageKeywordRows
+     * @return array{score:int,tone:string,factors:array<int, array{label:string,value:string,copy:string}>}
+     */
+    private function build_organic_authority_score(array $localAudit, array $summary, array $pageRows, array $pageKeywordRows): array {
+        $impressions = (int) ($summary['impressions'] ?? 0);
+        $clicks = (int) ($summary['clicks'] ?? 0);
+        $queryCount = (int) ($summary['query_count'] ?? 0);
+        $visiblePages = (int) ($summary['page_count'] ?? 0);
+        $avgPosition = is_numeric($summary['avg_position'] ?? null) ? (float) $summary['avg_position'] : 0.0;
+        $localPageCount = max(1, (int) ($localAudit['page_count'] ?? 0));
+        $targetedPages = count(array_filter($pageKeywordRows, static fn(array $row): bool => trim((string) ($row['primary_keyword'] ?? '')) !== ''));
+
+        $visibilityScore = min(25, (int) round(log10(max(1, $impressions) + 1) * 7));
+        $clickScore = min(15, (int) round(log10(max(1, $clicks) + 1) * 6));
+        $queryScore = min(15, (int) round(($queryCount / 50) * 15));
+        $pageVisibilityScore = min(15, (int) round(($visiblePages / max(1, $localPageCount)) * 15));
+        $targetingScore = min(15, (int) round(($targetedPages / $localPageCount) * 15));
+        $positionScore = 0;
+
+        if ($avgPosition > 0) {
+            if ($avgPosition <= 3) {
+                $positionScore = 15;
+            } elseif ($avgPosition <= 10) {
+                $positionScore = 12;
+            } elseif ($avgPosition <= 20) {
+                $positionScore = 8;
+            } elseif ($avgPosition <= 50) {
+                $positionScore = 4;
+            }
+        }
+
+        $score = max(0, min(100, $visibilityScore + $clickScore + $queryScore + $pageVisibilityScore + $targetingScore + $positionScore));
+        $tone = 'bad';
+        if ($score >= 70) {
+            $tone = 'good';
+        } elseif ($score >= 40) {
+            $tone = 'warning';
+        }
+
+        return [
+            'score' => $score,
+            'tone' => $tone,
+            'factors' => [
+                [
+                    'label' => __('Visibilite Google', 'wp-rank-tracker'),
+                    'value' => number_format_i18n($impressions),
+                    'copy' => __('impressions Search Console sur la periode importee', 'wp-rank-tracker'),
+                ],
+                [
+                    'label' => __('Trafic organique', 'wp-rank-tracker'),
+                    'value' => number_format_i18n($clicks),
+                    'copy' => __('clics naturels mesures par Search Console', 'wp-rank-tracker'),
+                ],
+                [
+                    'label' => __('Requetes visibles', 'wp-rank-tracker'),
+                    'value' => number_format_i18n($queryCount),
+                    'copy' => __('expressions qui font apparaitre le site', 'wp-rank-tracker'),
+                ],
+                [
+                    'label' => __('Pages visibles', 'wp-rank-tracker'),
+                    'value' => number_format_i18n($visiblePages) . '/' . number_format_i18n($localPageCount),
+                    'copy' => __('pages locales qui ressortent dans Google', 'wp-rank-tracker'),
+                ],
+                [
+                    'label' => __('Ciblage SEO', 'wp-rank-tracker'),
+                    'value' => number_format_i18n($targetedPages) . '/' . number_format_i18n($localPageCount),
+                    'copy' => __('pages avec un mot-cle principal affecte', 'wp-rank-tracker'),
+                ],
+                [
+                    'label' => __('Position moyenne', 'wp-rank-tracker'),
+                    'value' => $avgPosition > 0 ? $this->format_position($avgPosition) : '-',
+                    'copy' => __('qualite moyenne des positions visibles', 'wp-rank-tracker'),
+                ],
             ],
         ];
     }
